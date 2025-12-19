@@ -39,3 +39,32 @@ luac.out
 *.x86_64
 *.hex
 
+# WoW junk
+WTF/
+SavedVariables/
+
+# Packaging
+.releases/
+release/
+dist/
+
+# Claude / AI
+.claude/
+.claude-cache/
+.claude-workspace/
+.claude-project/
+.claude-history/
+.claude-chat.json
+.ai/
+.llm/
+.llm-cache/
+.prompt-cache/
+.prompts.local/
+
+# Editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
