@@ -1,0 +1,11 @@
+## Interface: 110207, 120000
+## Title: Default Current Expansion
+## Notes: Automatically selects "Current Expansion Only" in Auction House and Crafting Orders filters
+## Author: Your Name
+## Version: 1.0.0
+## SavedVariables: DefaultCurrentExpansionDB
+## IconTexture: Interface\Icons\inv_misc_spyglass_02
+## X-Category: Auction/Economy
+## Category-enUS: Auctions
+
+DefaultCurrentExpansion.lua
