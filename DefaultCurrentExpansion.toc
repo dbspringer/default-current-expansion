@@ -1,8 +1,12 @@
-## Interface: 110207, 120000
+## Interface: 120000, 120001
 ## Title: Default Current Expansion
 ## Notes: Automatically selects "Current Expansion Only" in Auction House and Crafting Orders filters
-## Author: Your Name
-## Version: 1.0.0
+## Author: KidMoxie
+## Version: @project-version@
+## X-Version: 1.1.0
+## X-License: MIT
+## X-Website: https://github.com/KidMoxie/default-current-expansion
+## X-Curse-Project-ID: 1409180
 ## SavedVariables: DefaultCurrentExpansionDB
 ## IconTexture: Interface\Icons\inv_misc_spyglass_02
 ## X-Category: Auction/Economy
