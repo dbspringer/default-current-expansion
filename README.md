@@ -5,7 +5,7 @@ A World of Warcraft addon that automatically selects "Current Expansion Only" fi
 ## Features
 
 - Automatically applies "Current Expansion Only" filter when opening the Auction House and when browsing Crafting Orders
-- Compatible with retail WoW 11.2.7 (The War Within) and upcoming 12.0 (Midnight) release
+- Compatible with retail WoW 12.0.0+ (Midnight)
 
 ## Installation
 
@@ -68,8 +68,7 @@ To test the addon:
 
 ## Compatibility
 
-- **Current Version:** Retail WoW 11.2.7 (The War Within)
-- **Future Version:** 12.0.0 (Midnight) - prepared with dual interface version support
+- **Current Version:** Retail WoW 12.0.0+ (Midnight)
 - **Not compatible with:** Classic WoW, Classic Era, or Cataclysm Classic
 
 ## Contributing

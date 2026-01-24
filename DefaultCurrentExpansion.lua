@@ -55,6 +55,8 @@ function addon:SetupAuctionHouse()
 					-- Set or clear the filter based on current setting
 					if filterButton.filters then
 						filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
+						-- Update the UI to reflect filter state
+						searchBar:UpdateClearFiltersButton()
 						if DefaultCurrentExpansionDB.auctionHouse then
 							DebugPrint("Auction House filter set to current expansion")
 						else
