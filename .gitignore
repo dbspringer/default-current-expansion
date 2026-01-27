@@ -60,6 +60,7 @@ dist/
 .llm-cache/
 .prompt-cache/
 .prompts.local/
+CLAUDE.local.md
 
 # Editors
 .vscode/
