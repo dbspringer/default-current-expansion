@@ -2,13 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2025-01-27
+
+### Added
+- Crafting Orders filter UI feedback with ValidateResetState call
+- Options panel checkbox refresh on show
+- Named event frames for easier debugging
+
+### Changed
+- Use dynamic version from TOC metadata
+- Hoist event handlers to module level for efficiency
+- Remove deprecated InterfaceOptions API fallbacks (12.0+ only)
+- Remove redundant event checks in single-event handlers
+
+### Fixed
+- Potential nil error in DebugPrint before InitDB
+
 ## [1.1.0] - 2025-01-24
 
 ### Changed
 - Updated interface support for WoW 12.0.1 (Midnight)
 - Improved Auction House filter UI feedback with UpdateClearFiltersButton call
 
-## [1.0.0] - 2025-01-XX
+## [1.0.0] - 2025-01-19
 
 ### Added
 - Initial release

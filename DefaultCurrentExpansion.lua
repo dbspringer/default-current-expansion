@@ -27,7 +27,7 @@ end
 
 -- Debug print function
 local function DebugPrint(...)
-	if DefaultCurrentExpansionDB.debug then
+	if DefaultCurrentExpansionDB and DefaultCurrentExpansionDB.debug then
 		print("|cff00ff00[" .. addonName .. "]|r", ...)
 	end
 end
@@ -37,101 +37,82 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
--- Auction House filter automation
-function addon:SetupAuctionHouse()
-	-- Hook into the Auction House UI when it opens
-	local function OnAuctionHouseShow()
-		-- Wait a frame to ensure UI is fully loaded
-		C_Timer.After(0.1, function()
-			if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
-				-- Access the SearchBar and FilterButton
-				local searchBar = AuctionHouseFrame.SearchBar
-				if searchBar and searchBar.FilterButton then
-					local filterButton = searchBar.FilterButton
+-- Auction House event handler
+local function OnAuctionHouseShow()
+	C_Timer.After(0.1, function()
+		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
+			local searchBar = AuctionHouseFrame.SearchBar
+			if searchBar and searchBar.FilterButton then
+				local filterButton = searchBar.FilterButton
+				local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
-					-- Set the filter using the proper enum
-					local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-
-					-- Set or clear the filter based on current setting
-					if filterButton.filters then
-						filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
-						-- Update the UI to reflect filter state
-						searchBar:UpdateClearFiltersButton()
-						if DefaultCurrentExpansionDB.auctionHouse then
-							DebugPrint("Auction House filter set to current expansion")
-						else
-							DebugPrint("Auction House filter cleared")
-						end
+				if filterButton.filters then
+					filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
+					searchBar:UpdateClearFiltersButton()
+					if DefaultCurrentExpansionDB.auctionHouse then
+						DebugPrint("Auction House filter set to current expansion")
 					else
-						DebugPrint("Warning: FilterButton.filters not found")
+						DebugPrint("Auction House filter cleared")
 					end
 				else
-					DebugPrint("Warning: SearchBar or FilterButton not found")
+					DebugPrint("Warning: FilterButton.filters not found")
 				end
+			else
+				DebugPrint("Warning: SearchBar or FilterButton not found")
 			end
-		end)
-	end
+		end
+	end)
+end
 
-	-- Register for Auction House events
-	if not self.ahFrame then
-		self.ahFrame = CreateFrame("Frame")
-		self.ahFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
-		self.ahFrame:SetScript("OnEvent", function(self, event, ...)
-			if event == "AUCTION_HOUSE_SHOW" then
-				OnAuctionHouseShow()
+-- Crafting Orders event handler
+local function OnCraftingOrdersShow()
+	C_Timer.After(0.1, function()
+		if ProfessionsCustomerOrdersFrame and ProfessionsCustomerOrdersFrame:IsShown() then
+			local browseFrame = ProfessionsCustomerOrdersFrame.BrowseOrders
+			if browseFrame and browseFrame.SearchBar then
+				local searchBar = browseFrame.SearchBar
+
+				if searchBar.FilterDropdown then
+					local filterDropdown = searchBar.FilterDropdown
+					local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+
+					if filterDropdown.filters then
+						filterDropdown.filters[filter] = DefaultCurrentExpansionDB.craftingOrders
+						filterDropdown:ValidateResetState()
+						if DefaultCurrentExpansionDB.craftingOrders then
+							DebugPrint("Crafting Orders filter set to current expansion")
+						else
+							DebugPrint("Crafting Orders filter cleared")
+						end
+					else
+						DebugPrint("Warning: FilterDropdown.filters not found")
+					end
+				else
+					DebugPrint("Warning: FilterDropdown not found on SearchBar")
+				end
+			else
+				DebugPrint("Warning: BrowseOrders or SearchBar not found")
 			end
-		end)
+		end
+	end)
+end
+
+-- Auction House filter automation
+function addon:SetupAuctionHouse()
+	if not self.ahFrame then
+		self.ahFrame = CreateFrame("Frame", "DCE_AuctionHouseEventFrame")
+		self.ahFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
+		self.ahFrame:SetScript("OnEvent", OnAuctionHouseShow)
 		DebugPrint("Auction House automation enabled")
 	end
 end
 
 -- Crafting Orders filter automation
 function addon:SetupCraftingOrders()
-	-- Hook into the Crafting Orders UI when it opens
-	local function OnCraftingOrdersShow()
-		C_Timer.After(0.1, function()
-			if ProfessionsCustomerOrdersFrame and ProfessionsCustomerOrdersFrame:IsShown() then
-				local browseFrame = ProfessionsCustomerOrdersFrame.BrowseOrders
-				if browseFrame and browseFrame.SearchBar then
-					local searchBar = browseFrame.SearchBar
-
-					-- Access the FilterDropdown
-					if searchBar.FilterDropdown then
-						local filterDropdown = searchBar.FilterDropdown
-
-						-- Set the filter using the proper enum
-						local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-
-						-- Set or clear the filter based on current setting
-						if filterDropdown.filters then
-							filterDropdown.filters[filter] = DefaultCurrentExpansionDB.craftingOrders
-							if DefaultCurrentExpansionDB.craftingOrders then
-								DebugPrint("Crafting Orders filter set to current expansion")
-							else
-								DebugPrint("Crafting Orders filter cleared")
-							end
-						else
-							DebugPrint("Warning: FilterDropdown.filters not found")
-						end
-					else
-						DebugPrint("Warning: FilterDropdown not found on SearchBar")
-					end
-				else
-					DebugPrint("Warning: BrowseOrders or SearchBar not found")
-				end
-			end
-		end)
-	end
-
-	-- Monitor when the professions/crafting orders UI opens
 	if not self.coFrame then
-		self.coFrame = CreateFrame("Frame")
+		self.coFrame = CreateFrame("Frame", "DCE_CraftingOrdersEventFrame")
 		self.coFrame:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER")
-		self.coFrame:SetScript("OnEvent", function(self, event, ...)
-			if event == "CRAFTINGORDERS_SHOW_CUSTOMER" then
-				OnCraftingOrdersShow()
-			end
-		end)
+		self.coFrame:SetScript("OnEvent", OnCraftingOrdersShow)
 		DebugPrint("Crafting Orders automation enabled")
 	end
 end
@@ -187,20 +168,21 @@ function addon:CreateOptionsPanel()
 		end
 	end)
 
+	-- Refresh checkbox states when panel is shown
+	panel:SetScript("OnShow", function()
+		ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
+		coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
+	end)
+
 	-- Version info
 	local version = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 	version:SetPoint("BOTTOMLEFT", 16, 16)
-	version:SetText("Version 1.0.0")
+	version:SetText("Version " .. C_AddOns.GetAddOnMetadata(addonName, "Version"))
 
-	-- Register with Settings (new API for 10.0+)
-	if Settings and Settings.RegisterCanvasLayoutCategory then
-		local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
-		Settings.RegisterAddOnCategory(category)
-		addon.settingsCategory = category
-	else
-		-- Fallback for older versions
-		InterfaceOptions_AddCategory(panel)
-	end
+	-- Register with Settings
+	local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+	Settings.RegisterAddOnCategory(category)
+	addon.settingsCategory = category
 
 	addon.optionsPanel = panel
 	return panel
@@ -219,18 +201,7 @@ local function SlashCommandHandler(msg)
 		Print("/dce status - Show current settings")
 	elseif command == "opt" then
 		-- Open the addon settings panel
-		if Settings and Settings.OpenToCategory then
-			-- Use the stored category for the new Settings API
-			if addon.settingsCategory then
-				Settings.OpenToCategory(addon.settingsCategory:GetID())
-			else
-				Settings.OpenToCategory("Default Current Expansion")
-			end
-		elseif InterfaceOptionsFrame_OpenToCategory then
-			-- Fallback for older versions - need to call twice due to Blizzard bug
-			InterfaceOptionsFrame_OpenToCategory(addon.optionsPanel)
-			InterfaceOptionsFrame_OpenToCategory(addon.optionsPanel)
-		end
+		Settings.OpenToCategory(addon.settingsCategory:GetID())
 	elseif command == "ah" then
 		DefaultCurrentExpansionDB.auctionHouse = not DefaultCurrentExpansionDB.auctionHouse
 		Print("Auction House filtering", DefaultCurrentExpansionDB.auctionHouse and "enabled" or "disabled")
@@ -262,11 +233,11 @@ SLASH_DEFAULTCURRENTEXPANSION2 = "/defaultcurrentexpansion"
 SlashCmdList["DEFAULTCURRENTEXPANSION"] = SlashCommandHandler
 
 -- Main initialization
-local eventFrame = CreateFrame("Frame")
+local eventFrame = CreateFrame("Frame", "DCE_MainEventFrame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 
-eventFrame:SetScript("OnEvent", function(self, event, arg1)
+eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == addonName then
 		addon:InitDB()
 		addon:CreateOptionsPanel()
