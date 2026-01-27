@@ -1,0 +1,15 @@
+package-as: DefaultCurrentExpansion
+
+enable-nolib-creation: no
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+ignore:
+  - .git
+  - .gitignore
+  - README.md
+  - CLAUDE.md
+  - CLAUDE.local.md
+  - .pkgmeta
