@@ -2,7 +2,7 @@
 ## Title: Default Current Expansion
 ## Notes: Automatically selects "Current Expansion Only" in Auction House and Crafting Orders filters
 ## Author: KidMoxie
-## Version: 1.2.0
+## Version: 1.2.1
 ## X-License: MIT
 ## X-Website: https://github.com/KidMoxie/default-current-expansion
 ## X-Curse-Project-ID: 1409180
