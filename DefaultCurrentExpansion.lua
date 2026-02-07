@@ -37,12 +37,12 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
--- Auction House event handler
-local function OnAuctionHouseShow()
+-- Apply AH filter after a short delay (frames need time to initialize)
+local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
-			if searchBar and searchBar.FilterButton then
+			if searchBar and searchBar:IsShown() and searchBar.FilterButton then
 				local filterButton = searchBar.FilterButton
 				local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
@@ -58,10 +58,29 @@ local function OnAuctionHouseShow()
 					DebugPrint("Warning: FilterButton.filters not found")
 				end
 			else
-				DebugPrint("Warning: SearchBar or FilterButton not found")
+				DebugPrint("Buy tab not active, skipping filter")
 			end
 		end
 	end)
+end
+
+-- Auction House event handler
+-- Hooks SetDisplayMode to catch tab switches (e.g. returning from Auctionator's Shopping tab)
+local displayModeHooked = false
+
+local function OnAuctionHouseShow()
+	if not displayModeHooked and AuctionHouseFrame then
+		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
+			if displayMode and next(displayMode) ~= nil then
+				DebugPrint("Tab switch detected, re-applying filter")
+				ApplyAuctionHouseFilter()
+			end
+		end)
+		displayModeHooked = true
+		DebugPrint("SetDisplayMode hook installed")
+	end
+
+	ApplyAuctionHouseFilter()
 end
 
 -- Crafting Orders event handler
