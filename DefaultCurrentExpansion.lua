@@ -42,7 +42,7 @@ local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
-			if searchBar and searchBar.FilterButton then
+			if searchBar and searchBar:IsShown() and searchBar.FilterButton then
 				local filterButton = searchBar.FilterButton
 				local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
