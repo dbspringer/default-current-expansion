@@ -15,7 +15,9 @@ Single-file addon: `DefaultCurrentExpansion.lua`. No libraries, no XML, no embed
 
 ### Runtime Flow
 
-- `AUCTION_HOUSE_SHOW` → 0.1s delay via `C_Timer.After` → write `true` into `AuctionHouseFrame.SearchBar.FilterButton.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`, then call `searchBar:UpdateClearFiltersButton()`
+- `AUCTION_HOUSE_SHOW` → install `hooksecurefunc` on `AuctionHouseFrame.SetDisplayMode` (once, to catch tab switches) → call `ApplyAuctionHouseFilter()`
+- `ApplyAuctionHouseFilter()` → 0.1s delay via `C_Timer.After` → check `searchBar:IsShown()` (Buy tab only) → write `true` into `AuctionHouseFrame.SearchBar.FilterButton.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`, then call `searchBar:UpdateClearFiltersButton()`
+- The `SetDisplayMode` hook also calls `ApplyAuctionHouseFilter()` on tab switches, but skips Auctionator's empty-table `SetDisplayMode({})` calls via `next(displayMode) ~= nil`
 - `CRAFTINGORDERS_SHOW_CUSTOMER` → 0.1s delay → write `true` into `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`, then call `filterDropdown:ValidateResetState()`
 
 The 0.1s delay exists because Blizzard frames are not fully initialized on the event fire. Do not remove it.
@@ -93,6 +95,7 @@ These are the paths most likely to break on WoW patches:
 2. **CO filter path**: `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters` — same risk
 3. **Enum value**: `Enum.AuctionHouseFilter.CurrentExpansionOnly` — could be renamed or removed in a major patch
 4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` — internal Blizzard methods, not part of a stable API
+5. **SetDisplayMode hook**: `AuctionHouseFrame.SetDisplayMode` — hooked via `hooksecurefunc` to detect tab switches; if Blizzard renames or removes this method, the hook silently stops firing (filter still applies on initial open, just not on tab switch)
 
 When any of these break, the addon fails silently (no error, filter just isn't set). Enable `/dce debug` to see which path failed.
 

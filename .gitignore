@@ -61,6 +61,7 @@ dist/
 .prompt-cache/
 .prompts.local/
 CLAUDE.local.md
+tasks/
 
 # Editors
 .vscode/
