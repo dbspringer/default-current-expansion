@@ -79,7 +79,8 @@ Registered via `Settings.RegisterCanvasLayoutCategory` (modern Settings API). Us
 - Add features outside AH/CO filter defaulting — scope is intentionally narrow
 - Require or bundle external libraries (Ace3, LibStub, etc.)
 - Hook or replace Blizzard functions — the addon writes directly to filter state, it does not detour anything
-- Use `securecall`, `hooksecurefunc`, or modify protected frames — the filter tables are not protected
+- Use `securecall` or modify protected frames — the filter tables are not protected
+- `hooksecurefunc` is acceptable for *observing* Blizzard method calls (e.g. tab switches) but never for altering their behavior
 - Add Classic/Era support without a separate TOC and gated code paths
 - Remove the `C_Timer.After(0.1, ...)` delay without verifying the frame is fully initialized at event fire time
 - Commit AI-related files (CLAUDE.local.md, .claude/, etc.) — they are in `.gitignore` and `.pkgmeta` ignore list
