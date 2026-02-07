@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-02-07
+
+### Fixed
+- AH filter not applied when switching back to Buy tab with Auctionator installed
+- Filter now only applies when Buy tab is active, skipping Sell/Auctions tabs
+
+### Changed
+- Improved compatibility with addons that override the default AH tab (e.g. Auctionator)
+
 ## [1.2.1] - 2025-01-28
 
 ### Added
