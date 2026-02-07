@@ -58,7 +58,7 @@ local function ApplyAuctionHouseFilter()
 					DebugPrint("Warning: FilterButton.filters not found")
 				end
 			else
-				DebugPrint("Warning: SearchBar or FilterButton not found")
+				DebugPrint("Buy tab not active, skipping filter")
 			end
 		end
 	end)
