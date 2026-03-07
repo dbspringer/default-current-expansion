@@ -40,6 +40,8 @@ end
 
 -- Tracks whether the AH filter has been successfully applied this session (reset on each AH open)
 local ahFilterAppliedThisSession = false
+-- Tracks whether the user manually cleared the filter this session
+local userClearedFilter = false
 
 -- Apply AH filter after a short delay (frames need time to initialize)
 local function ApplyAuctionHouseFilter()
@@ -75,12 +77,24 @@ local displayModeHooked = false
 
 local function OnAuctionHouseShow()
 	ahFilterAppliedThisSession = false
+	userClearedFilter = false
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
 				if DefaultCurrentExpansionDB.applyOnOpenOnly and ahFilterAppliedThisSession then
-					DebugPrint("applyOnOpenOnly active, skipping tab-switch re-apply")
-					return
+					-- Read filter state before Blizzard resets it to detect manual user changes
+					local searchBar = AuctionHouseFrame.SearchBar
+					if searchBar and searchBar.FilterButton and searchBar.FilterButton.filters then
+						local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+						if not searchBar.FilterButton.filters[filter] then
+							userClearedFilter = true
+							DebugPrint("User cleared filter, respecting manual change")
+						end
+					end
+					if userClearedFilter then
+						DebugPrint("applyOnOpenOnly active, user cleared filter, skipping re-apply")
+						return
+					end
 				end
 				DebugPrint("Tab switch detected, re-applying filter")
 				ApplyAuctionHouseFilter()
