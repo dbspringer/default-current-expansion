@@ -50,8 +50,43 @@ local ahFilterAppliedThisSession = false
 local addonSetFilterState = nil
 -- Tracks whether the user manually changed the filter this session
 local userChangedFilter = false
--- Whether we've installed the SearchBar OnHide hook
-local searchBarHooked = false
+-- Ticker that watches for user filter changes
+local filterWatcher = nil
+
+-- Cancel any active filter watcher
+local function CancelFilterWatcher()
+	if filterWatcher then
+		filterWatcher:Cancel()
+		filterWatcher = nil
+	end
+end
+
+-- Start watching for user filter changes (polls while Buy tab is shown)
+local function StartFilterWatcher()
+	CancelFilterWatcher()
+	if not DefaultCurrentExpansionDB.preserveFilterChanges then return end
+
+	filterWatcher = C_Timer.NewTicker(0.2, function()
+		if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
+			CancelFilterWatcher()
+			return
+		end
+		local searchBar = AuctionHouseFrame.SearchBar
+		if not searchBar or not searchBar:IsShown() then return end
+		local filterButton = searchBar.FilterButton
+		if not filterButton or not filterButton.filters then return end
+
+		local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+		local currentState = filterButton.filters[filter] and true or false
+		if currentState ~= addonSetFilterState and not userChangedFilter then
+			userChangedFilter = true
+			DebugPrint("User changed filter, preserving manual change")
+		elseif currentState == addonSetFilterState and userChangedFilter then
+			userChangedFilter = false
+			DebugPrint("User restored filter, resuming re-apply")
+		end
+	end)
+end
 
 -- Apply AH filter after a short delay (frames need time to initialize)
 local function ApplyAuctionHouseFilter()
@@ -67,24 +102,7 @@ local function ApplyAuctionHouseFilter()
 					searchBar:UpdateClearFiltersButton()
 					ahFilterAppliedThisSession = true
 					addonSetFilterState = DefaultCurrentExpansionDB.auctionHouse
-					-- Hook SearchBar OnHide to capture filter state when Buy tab hides (before Blizzard resets it)
-					if not searchBarHooked then
-						searchBar:HookScript("OnHide", function()
-							if DefaultCurrentExpansionDB.preserveFilterChanges and ahFilterAppliedThisSession then
-								local currentFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-								local currentState = filterButton.filters[currentFilter] and true or false
-								if currentState ~= addonSetFilterState then
-									userChangedFilter = true
-									DebugPrint("User changed filter, preserving manual change")
-								elseif userChangedFilter then
-									userChangedFilter = false
-									DebugPrint("User restored filter, resuming re-apply")
-								end
-							end
-						end)
-						searchBarHooked = true
-						DebugPrint("SearchBar OnHide hook installed")
-					end
+					StartFilterWatcher()
 					if DefaultCurrentExpansionDB.auctionHouse then
 						DebugPrint("Auction House filter set to current expansion")
 					else
@@ -108,6 +126,7 @@ local function OnAuctionHouseShow()
 	ahFilterAppliedThisSession = false
 	addonSetFilterState = nil
 	userChangedFilter = false
+	CancelFilterWatcher()
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
