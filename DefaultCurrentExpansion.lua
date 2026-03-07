@@ -44,12 +44,10 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
--- Tracks whether the AH filter has been successfully applied this session (reset on each AH open)
-local ahFilterAppliedThisSession = false
--- What the addon last set the filter to (so we can detect user changes)
-local addonSetFilterState = nil
--- Tracks whether the user manually changed the filter this session
-local userChangedFilter = false
+-- User's manual filter override for this AH session (nil = use addon setting)
+local userFilterOverride = nil
+-- What was last applied, so the watcher can detect user changes
+local lastAppliedFilterState = nil
 -- Ticker that watches for user filter changes
 local filterWatcher = nil
 
@@ -78,12 +76,9 @@ local function StartFilterWatcher()
 
 		local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 		local currentState = filterButton.filters[filter] and true or false
-		if currentState ~= addonSetFilterState and not userChangedFilter then
-			userChangedFilter = true
-			DebugPrint("User changed filter, preserving manual change")
-		elseif currentState == addonSetFilterState and userChangedFilter then
-			userChangedFilter = false
-			DebugPrint("User restored filter, resuming re-apply")
+		if currentState ~= lastAppliedFilterState then
+			userFilterOverride = currentState
+			DebugPrint("User changed filter to " .. tostring(currentState) .. ", will preserve on tab switch")
 		end
 	end)
 end
@@ -98,16 +93,18 @@ local function ApplyAuctionHouseFilter()
 				local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
 				if filterButton.filters then
-					filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
-					searchBar:UpdateClearFiltersButton()
-					ahFilterAppliedThisSession = true
-					addonSetFilterState = DefaultCurrentExpansionDB.auctionHouse
-					StartFilterWatcher()
-					if DefaultCurrentExpansionDB.auctionHouse then
-						DebugPrint("Auction House filter set to current expansion")
+					-- Use user's override if preserve mode is on, otherwise use addon setting
+					local desiredState
+					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride ~= nil then
+						desiredState = userFilterOverride
 					else
-						DebugPrint("Auction House filter cleared")
+						desiredState = DefaultCurrentExpansionDB.auctionHouse
 					end
+					filterButton.filters[filter] = desiredState
+					searchBar:UpdateClearFiltersButton()
+					lastAppliedFilterState = desiredState
+					StartFilterWatcher()
+					DebugPrint("Auction House filter set to " .. tostring(desiredState))
 				else
 					DebugPrint("Warning: FilterButton.filters not found")
 				end
@@ -123,17 +120,12 @@ end
 local displayModeHooked = false
 
 local function OnAuctionHouseShow()
-	ahFilterAppliedThisSession = false
-	addonSetFilterState = nil
-	userChangedFilter = false
+	userFilterOverride = nil
+	lastAppliedFilterState = nil
 	CancelFilterWatcher()
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
-				if DefaultCurrentExpansionDB.preserveFilterChanges and userChangedFilter then
-					DebugPrint("Preserving user filter change, skipping re-apply")
-					return
-				end
 				DebugPrint("Tab switch detected, re-applying filter")
 				ApplyAuctionHouseFilter()
 			end
