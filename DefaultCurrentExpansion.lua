@@ -50,6 +50,7 @@ local function ApplyAuctionHouseFilter()
 				if filterButton.filters then
 					filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
 					searchBar:UpdateClearFiltersButton()
+					ahFilterAppliedThisSession = true
 					if DefaultCurrentExpansionDB.auctionHouse then
 						DebugPrint("Auction House filter set to current expansion")
 					else
@@ -65,15 +66,19 @@ local function ApplyAuctionHouseFilter()
 	end)
 end
 
+-- Tracks whether the AH filter has been successfully applied this session (reset on each AH open)
+local ahFilterAppliedThisSession = false
+
 -- Auction House event handler
 -- Hooks SetDisplayMode to catch tab switches (e.g. returning from Auctionator's Shopping tab)
 local displayModeHooked = false
 
 local function OnAuctionHouseShow()
+	ahFilterAppliedThisSession = false
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
-				if DefaultCurrentExpansionDB.applyOnOpenOnly then
+				if DefaultCurrentExpansionDB.applyOnOpenOnly and ahFilterAppliedThisSession then
 					DebugPrint("applyOnOpenOnly active, skipping tab-switch re-apply")
 					return
 				end
