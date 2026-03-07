@@ -38,6 +38,9 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
+-- Tracks whether the AH filter has been successfully applied this session (reset on each AH open)
+local ahFilterAppliedThisSession = false
+
 -- Apply AH filter after a short delay (frames need time to initialize)
 local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
@@ -65,9 +68,6 @@ local function ApplyAuctionHouseFilter()
 		end
 	end)
 end
-
--- Tracks whether the AH filter has been successfully applied this session (reset on each AH open)
-local ahFilterAppliedThisSession = false
 
 -- Auction House event handler
 -- Hooks SetDisplayMode to catch tab switches (e.g. returning from Auctionator's Shopping tab)
