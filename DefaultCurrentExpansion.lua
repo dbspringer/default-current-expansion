@@ -42,6 +42,8 @@ end
 local ahFilterAppliedThisSession = false
 -- Tracks whether the user manually cleared the filter this session
 local userClearedFilter = false
+-- Whether we've installed the SearchBar OnHide hook
+local searchBarHooked = false
 
 -- Apply AH filter after a short delay (frames need time to initialize)
 local function ApplyAuctionHouseFilter()
@@ -56,6 +58,20 @@ local function ApplyAuctionHouseFilter()
 					filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
 					searchBar:UpdateClearFiltersButton()
 					ahFilterAppliedThisSession = true
+					-- Hook SearchBar OnHide to capture filter state when Buy tab hides (before Blizzard resets it)
+					if not searchBarHooked then
+						searchBar:HookScript("OnHide", function()
+							if DefaultCurrentExpansionDB.applyOnOpenOnly and ahFilterAppliedThisSession then
+								local currentFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+								if not filterButton.filters[currentFilter] then
+									userClearedFilter = true
+									DebugPrint("User cleared filter, respecting manual change")
+								end
+							end
+						end)
+						searchBarHooked = true
+						DebugPrint("SearchBar OnHide hook installed")
+					end
 					if DefaultCurrentExpansionDB.auctionHouse then
 						DebugPrint("Auction House filter set to current expansion")
 					else
@@ -81,20 +97,9 @@ local function OnAuctionHouseShow()
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
-				if DefaultCurrentExpansionDB.applyOnOpenOnly and ahFilterAppliedThisSession then
-					-- Read filter state before Blizzard resets it to detect manual user changes
-					local searchBar = AuctionHouseFrame.SearchBar
-					if searchBar and searchBar.FilterButton and searchBar.FilterButton.filters then
-						local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-						if not searchBar.FilterButton.filters[filter] then
-							userClearedFilter = true
-							DebugPrint("User cleared filter, respecting manual change")
-						end
-					end
-					if userClearedFilter then
-						DebugPrint("applyOnOpenOnly active, user cleared filter, skipping re-apply")
-						return
-					end
+				if DefaultCurrentExpansionDB.applyOnOpenOnly and userClearedFilter then
+					DebugPrint("applyOnOpenOnly active, user cleared filter, skipping re-apply")
+					return
 				end
 				DebugPrint("Tab switch detected, re-applying filter")
 				ApplyAuctionHouseFilter()
