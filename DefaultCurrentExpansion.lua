@@ -9,7 +9,6 @@ local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
 	preserveFilterChanges = true,
-	debug = false
 }
 
 -- Initialize saved variables
@@ -24,13 +23,9 @@ function addon:InitDB()
 			DefaultCurrentExpansionDB[k] = v
 		end
 	end
-end
 
--- Debug print function
-local function DebugPrint(...)
-	if DefaultCurrentExpansionDB and DefaultCurrentExpansionDB.debug then
-		print("|cff00ff00[" .. addonName .. "]|r", ...)
-	end
+	-- Clean up removed keys from existing saved variables
+	DefaultCurrentExpansionDB.debug = nil
 end
 
 -- Print function for user messages
@@ -72,7 +67,6 @@ local function StartFilterWatcher()
 		local currentState = filterButton.filters[filter] and true or false
 		if currentState ~= lastAppliedFilterState then
 			userFilterOverride = currentState
-			DebugPrint("User changed filter to " .. tostring(currentState) .. ", will preserve on tab switch")
 		end
 	end)
 end
@@ -98,12 +92,7 @@ local function ApplyAuctionHouseFilter()
 					searchBar:UpdateClearFiltersButton()
 					lastAppliedFilterState = desiredState
 					StartFilterWatcher()
-					DebugPrint("Auction House filter set to " .. tostring(desiredState))
-				else
-					DebugPrint("Warning: FilterButton.filters not found")
 				end
-			else
-				DebugPrint("Buy tab not active, skipping filter")
 			end
 		end
 	end)
@@ -121,12 +110,10 @@ local function OnAuctionHouseShow()
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
 				CancelFilterWatcher()
-				DebugPrint("Tab switch detected, re-applying filter")
 				ApplyAuctionHouseFilter()
 			end
 		end)
 		displayModeHooked = true
-		DebugPrint("SetDisplayMode hook installed")
 	end
 
 	ApplyAuctionHouseFilter()
@@ -147,19 +134,8 @@ local function OnCraftingOrdersShow()
 					if filterDropdown.filters then
 						filterDropdown.filters[filter] = DefaultCurrentExpansionDB.craftingOrders
 						filterDropdown:ValidateResetState()
-						if DefaultCurrentExpansionDB.craftingOrders then
-							DebugPrint("Crafting Orders filter set to current expansion")
-						else
-							DebugPrint("Crafting Orders filter cleared")
-						end
-					else
-						DebugPrint("Warning: FilterDropdown.filters not found")
 					end
-				else
-					DebugPrint("Warning: FilterDropdown not found on SearchBar")
 				end
-			else
-				DebugPrint("Warning: BrowseOrders or SearchBar not found")
 			end
 		end
 	end)
@@ -171,7 +147,6 @@ function addon:SetupAuctionHouse()
 		self.ahFrame = CreateFrame("Frame", "DCE_AuctionHouseEventFrame")
 		self.ahFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
 		self.ahFrame:SetScript("OnEvent", OnAuctionHouseShow)
-		DebugPrint("Auction House automation enabled")
 	end
 end
 
@@ -181,7 +156,6 @@ function addon:SetupCraftingOrders()
 		self.coFrame = CreateFrame("Frame", "DCE_CraftingOrdersEventFrame")
 		self.coFrame:RegisterEvent("CRAFTINGORDERS_SHOW_CUSTOMER")
 		self.coFrame:SetScript("OnEvent", OnCraftingOrdersShow)
-		DebugPrint("Crafting Orders automation enabled")
 	end
 end
 
@@ -281,7 +255,6 @@ local function SlashCommandHandler(msg)
 		Print("/dce ah - Toggle Auction House filtering")
 		Print("/dce co - Toggle Crafting Orders filtering")
 		Print("/dce preserve - Toggle preserve filter changes")
-		Print("/dce debug - Toggle debug messages")
 		Print("/dce status - Show current settings")
 	elseif command == "opt" then
 		-- Open the addon settings panel
@@ -301,15 +274,11 @@ local function SlashCommandHandler(msg)
 	elseif command == "preserve" then
 		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
 		Print("Preserve filter changes", DefaultCurrentExpansionDB.preserveFilterChanges and "enabled" or "disabled")
-	elseif command == "debug" then
-		DefaultCurrentExpansionDB.debug = not DefaultCurrentExpansionDB.debug
-		Print("Debug mode", DefaultCurrentExpansionDB.debug and "enabled" or "disabled")
 	elseif command == "status" then
 		Print("Current Settings:")
 		Print("  Auction House:", DefaultCurrentExpansionDB.auctionHouse and "Yes" or "No")
 		Print("  Crafting Orders:", DefaultCurrentExpansionDB.craftingOrders and "Yes" or "No")
 		Print("  Preserve Filter Changes:", DefaultCurrentExpansionDB.preserveFilterChanges and "Yes" or "No")
-		Print("  Debug:", DefaultCurrentExpansionDB.debug and "Yes" or "No")
 	else
 		Print("Unknown command. Type /dce help for options")
 	end
@@ -329,7 +298,6 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == addonName then
 		addon:InitDB()
 		addon:CreateOptionsPanel()
-		DebugPrint("Addon loaded")
 	elseif event == "PLAYER_LOGIN" then
 		addon:SetupAuctionHouse()
 		addon:SetupCraftingOrders()
