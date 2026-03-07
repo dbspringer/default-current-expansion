@@ -192,10 +192,25 @@ function addon:CreateOptionsPanel()
 		end
 	end)
 
+	-- Apply On Open Only checkbox
+	local openOnlyCheckbox = CreateFrame("CheckButton", "DCE_OpenOnlyCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	openOnlyCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
+	openOnlyCheckbox.Text:SetText("Apply only when Auction House opens")
+	openOnlyCheckbox:SetChecked(DefaultCurrentExpansionDB.applyOnOpenOnly)
+	openOnlyCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.applyOnOpenOnly = self:GetChecked()
+		if DefaultCurrentExpansionDB.applyOnOpenOnly then
+			Print("Apply on open only enabled")
+		else
+			Print("Apply on open only disabled")
+		end
+	end)
+
 	-- Refresh checkbox states when panel is shown
 	panel:SetScript("OnShow", function()
 		ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
 		coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
+		openOnlyCheckbox:SetChecked(DefaultCurrentExpansionDB.applyOnOpenOnly)
 	end)
 
 	-- Version info
