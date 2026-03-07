@@ -73,6 +73,10 @@ local function OnAuctionHouseShow()
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
+				if DefaultCurrentExpansionDB.applyOnOpenOnly then
+					DebugPrint("applyOnOpenOnly active, skipping tab-switch re-apply")
+					return
+				end
 				DebugPrint("Tab switch detected, re-applying filter")
 				ApplyAuctionHouseFilter()
 			end
