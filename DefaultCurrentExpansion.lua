@@ -8,6 +8,7 @@ local addon = {}
 local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
+	preserveFilterChanges = true,
 	debug = false
 }
 
@@ -37,6 +38,45 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
+-- User's manual filter override for this AH session (nil = use addon setting)
+local userFilterOverride = nil
+-- What was last applied, so the watcher can detect user changes
+local lastAppliedFilterState = nil
+-- Ticker that watches for user filter changes
+local filterWatcher = nil
+
+-- Cancel any active filter watcher
+local function CancelFilterWatcher()
+	if filterWatcher then
+		filterWatcher:Cancel()
+		filterWatcher = nil
+	end
+end
+
+-- Start watching for user filter changes (polls while Buy tab is shown)
+local function StartFilterWatcher()
+	CancelFilterWatcher()
+	if not DefaultCurrentExpansionDB.preserveFilterChanges then return end
+
+	filterWatcher = C_Timer.NewTicker(0.2, function()
+		if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
+			CancelFilterWatcher()
+			return
+		end
+		local searchBar = AuctionHouseFrame.SearchBar
+		if not searchBar or not searchBar:IsShown() then return end
+		local filterButton = searchBar.FilterButton
+		if not filterButton or not filterButton.filters then return end
+
+		local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+		local currentState = filterButton.filters[filter] and true or false
+		if currentState ~= lastAppliedFilterState then
+			userFilterOverride = currentState
+			DebugPrint("User changed filter to " .. tostring(currentState) .. ", will preserve on tab switch")
+		end
+	end)
+end
+
 -- Apply AH filter after a short delay (frames need time to initialize)
 local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
@@ -47,13 +87,18 @@ local function ApplyAuctionHouseFilter()
 				local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
 				if filterButton.filters then
-					filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
-					searchBar:UpdateClearFiltersButton()
-					if DefaultCurrentExpansionDB.auctionHouse then
-						DebugPrint("Auction House filter set to current expansion")
+					-- Use user's override if preserve mode is on, otherwise use addon setting
+					local desiredState
+					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride ~= nil then
+						desiredState = userFilterOverride
 					else
-						DebugPrint("Auction House filter cleared")
+						desiredState = DefaultCurrentExpansionDB.auctionHouse
 					end
+					filterButton.filters[filter] = desiredState
+					searchBar:UpdateClearFiltersButton()
+					lastAppliedFilterState = desiredState
+					StartFilterWatcher()
+					DebugPrint("Auction House filter set to " .. tostring(desiredState))
 				else
 					DebugPrint("Warning: FilterButton.filters not found")
 				end
@@ -69,9 +114,13 @@ end
 local displayModeHooked = false
 
 local function OnAuctionHouseShow()
+	userFilterOverride = nil
+	lastAppliedFilterState = nil
+	CancelFilterWatcher()
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
+				CancelFilterWatcher()
 				DebugPrint("Tab switch detected, re-applying filter")
 				ApplyAuctionHouseFilter()
 			end
@@ -187,10 +236,25 @@ function addon:CreateOptionsPanel()
 		end
 	end)
 
+	-- Preserve Filter Changes checkbox
+	local preserveCheckbox = CreateFrame("CheckButton", "DCE_PreserveCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	preserveCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
+	preserveCheckbox.Text:SetText("Preserve filter changes")
+	preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
+	preserveCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.preserveFilterChanges = self:GetChecked()
+		if DefaultCurrentExpansionDB.preserveFilterChanges then
+			Print("Preserve filter changes enabled")
+		else
+			Print("Preserve filter changes disabled")
+		end
+	end)
+
 	-- Refresh checkbox states when panel is shown
 	panel:SetScript("OnShow", function()
 		ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
 		coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
+		preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
 	end)
 
 	-- Version info
@@ -216,6 +280,7 @@ local function SlashCommandHandler(msg)
 		Print("/dce opt - Open options menu")
 		Print("/dce ah - Toggle Auction House filtering")
 		Print("/dce co - Toggle Crafting Orders filtering")
+		Print("/dce preserve - Toggle preserve filter changes")
 		Print("/dce debug - Toggle debug messages")
 		Print("/dce status - Show current settings")
 	elseif command == "opt" then
@@ -233,6 +298,9 @@ local function SlashCommandHandler(msg)
 		if DefaultCurrentExpansionDB.craftingOrders then
 			addon:SetupCraftingOrders()
 		end
+	elseif command == "preserve" then
+		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
+		Print("Preserve filter changes", DefaultCurrentExpansionDB.preserveFilterChanges and "enabled" or "disabled")
 	elseif command == "debug" then
 		DefaultCurrentExpansionDB.debug = not DefaultCurrentExpansionDB.debug
 		Print("Debug mode", DefaultCurrentExpansionDB.debug and "enabled" or "disabled")
@@ -240,6 +308,7 @@ local function SlashCommandHandler(msg)
 		Print("Current Settings:")
 		Print("  Auction House:", DefaultCurrentExpansionDB.auctionHouse and "Yes" or "No")
 		Print("  Crafting Orders:", DefaultCurrentExpansionDB.craftingOrders and "Yes" or "No")
+		Print("  Preserve Filter Changes:", DefaultCurrentExpansionDB.preserveFilterChanges and "Yes" or "No")
 		Print("  Debug:", DefaultCurrentExpansionDB.debug and "Yes" or "No")
 	else
 		Print("Unknown command. Type /dce help for options")

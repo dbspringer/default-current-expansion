@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-03-07
+
+### Added
+- Preserve filter changes option (on by default) — manual filter changes now persist through tab switches
+- New `/dce preserve` slash command to toggle the feature
+- Options panel checkbox for preserve filter changes
+- Filter state watcher to detect manual user changes in real-time
+
+### Changed
+- Filter re-apply on tab switch now applies the user's chosen state instead of always resetting to the addon default
+
 ## [1.3.0] - 2026-02-07
 
 ### Fixed
