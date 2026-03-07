@@ -18,12 +18,6 @@ function addon:InitDB()
 		DefaultCurrentExpansionDB = {}
 	end
 
-	-- Migrate renamed saved variables
-	if DefaultCurrentExpansionDB.applyOnOpenOnly ~= nil then
-		DefaultCurrentExpansionDB.preserveFilterChanges = DefaultCurrentExpansionDB.applyOnOpenOnly
-		DefaultCurrentExpansionDB.applyOnOpenOnly = nil
-	end
-
 	-- Merge defaults with saved settings
 	for k, v in pairs(defaults) do
 		if DefaultCurrentExpansionDB[k] == nil then
