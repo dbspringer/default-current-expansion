@@ -8,6 +8,7 @@ local addon = {}
 local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
+	applyOnOpenOnly = false,
 	debug = false
 }
 
