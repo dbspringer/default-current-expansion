@@ -236,6 +236,7 @@ local function SlashCommandHandler(msg)
 		Print("/dce opt - Open options menu")
 		Print("/dce ah - Toggle Auction House filtering")
 		Print("/dce co - Toggle Crafting Orders filtering")
+		Print("/dce openonly - Toggle apply on open only")
 		Print("/dce debug - Toggle debug messages")
 		Print("/dce status - Show current settings")
 	elseif command == "opt" then
@@ -253,6 +254,9 @@ local function SlashCommandHandler(msg)
 		if DefaultCurrentExpansionDB.craftingOrders then
 			addon:SetupCraftingOrders()
 		end
+	elseif command == "openonly" then
+		DefaultCurrentExpansionDB.applyOnOpenOnly = not DefaultCurrentExpansionDB.applyOnOpenOnly
+		Print("Apply on open only", DefaultCurrentExpansionDB.applyOnOpenOnly and "enabled" or "disabled")
 	elseif command == "debug" then
 		DefaultCurrentExpansionDB.debug = not DefaultCurrentExpansionDB.debug
 		Print("Debug mode", DefaultCurrentExpansionDB.debug and "enabled" or "disabled")
@@ -260,6 +264,7 @@ local function SlashCommandHandler(msg)
 		Print("Current Settings:")
 		Print("  Auction House:", DefaultCurrentExpansionDB.auctionHouse and "Yes" or "No")
 		Print("  Crafting Orders:", DefaultCurrentExpansionDB.craftingOrders and "Yes" or "No")
+		Print("  Apply On Open Only:", DefaultCurrentExpansionDB.applyOnOpenOnly and "Yes" or "No")
 		Print("  Debug:", DefaultCurrentExpansionDB.debug and "Yes" or "No")
 	else
 		Print("Unknown command. Type /dce help for options")
