@@ -46,8 +46,10 @@ end
 
 -- Tracks whether the AH filter has been successfully applied this session (reset on each AH open)
 local ahFilterAppliedThisSession = false
--- Tracks whether the user manually cleared the filter this session
-local userClearedFilter = false
+-- What the addon last set the filter to (so we can detect user changes)
+local addonSetFilterState = nil
+-- Tracks whether the user manually changed the filter this session
+local userChangedFilter = false
 -- Whether we've installed the SearchBar OnHide hook
 local searchBarHooked = false
 
@@ -64,17 +66,19 @@ local function ApplyAuctionHouseFilter()
 					filterButton.filters[filter] = DefaultCurrentExpansionDB.auctionHouse
 					searchBar:UpdateClearFiltersButton()
 					ahFilterAppliedThisSession = true
+					addonSetFilterState = DefaultCurrentExpansionDB.auctionHouse
 					-- Hook SearchBar OnHide to capture filter state when Buy tab hides (before Blizzard resets it)
 					if not searchBarHooked then
 						searchBar:HookScript("OnHide", function()
 							if DefaultCurrentExpansionDB.preserveFilterChanges and ahFilterAppliedThisSession then
 								local currentFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-								if not filterButton.filters[currentFilter] then
-									userClearedFilter = true
-									DebugPrint("User cleared filter, respecting manual change")
-								elseif userClearedFilter then
-									userClearedFilter = false
-									DebugPrint("User re-enabled filter, resuming re-apply")
+								local currentState = filterButton.filters[currentFilter] and true or false
+								if currentState ~= addonSetFilterState then
+									userChangedFilter = true
+									DebugPrint("User changed filter, preserving manual change")
+								elseif userChangedFilter then
+									userChangedFilter = false
+									DebugPrint("User restored filter, resuming re-apply")
 								end
 							end
 						end)
@@ -102,11 +106,12 @@ local displayModeHooked = false
 
 local function OnAuctionHouseShow()
 	ahFilterAppliedThisSession = false
-	userClearedFilter = false
+	addonSetFilterState = nil
+	userChangedFilter = false
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
-				if DefaultCurrentExpansionDB.preserveFilterChanges and userClearedFilter then
+				if DefaultCurrentExpansionDB.preserveFilterChanges and userChangedFilter then
 					DebugPrint("Preserving user filter change, skipping re-apply")
 					return
 				end
