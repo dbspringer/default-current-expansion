@@ -8,7 +8,7 @@ local addon = {}
 local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
-	preserveFilterChanges = false,
+	preserveFilterChanges = true,
 	debug = false
 }
 
