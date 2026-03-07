@@ -66,6 +66,9 @@ local function ApplyAuctionHouseFilter()
 								if not filterButton.filters[currentFilter] then
 									userClearedFilter = true
 									DebugPrint("User cleared filter, respecting manual change")
+								elseif userClearedFilter then
+									userClearedFilter = false
+									DebugPrint("User re-enabled filter, resuming re-apply")
 								end
 							end
 						end)
