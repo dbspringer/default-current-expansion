@@ -6,7 +6,11 @@ Default Current Expansion auto-enables the "Current Expansion Only" filter when 
 
 ## Architecture
 
-Single-file addon: `DefaultCurrentExpansion.lua`. No libraries, no XML, no embeds.
+Core logic in `DefaultCurrentExpansion.lua` with locale files in `Locales/`. No libraries, no XML, no embeds.
+
+### Localization
+
+Global `DCE_L` table created in `Locales/enUS.lua` with all English strings. Non-English locale files (deDE, esES, frFR, itIT, ptBR) guard with `GetLocale()` and override keys for their language. The main file references `local L = DCE_L`. If a locale doesn't override a key, English is used as fallback.
 
 ### Boot Sequence
 
@@ -38,11 +42,11 @@ The 0.1s delay exists because Blizzard frames are not fully initialized on the e
 |---|---|---|---|
 | `auctionHouse` | boolean | `true` | Toggle AH filter automation |
 | `craftingOrders` | boolean | `true` | Toggle CO filter automation |
-| `debug` | boolean | `false` | Print debug messages to chat |
+| `preserveFilterChanges` | boolean | `true` | Preserve user's manual filter changes on tab switch |
 
 ### Slash Commands
 
-`/dce` or `/defaultcurrentexpansion` with subcommands: `help`, `opt`, `ah`, `co`, `debug`, `status`.
+`/dce` or `/defaultcurrentexpansion` with subcommands: `help`, `opt`, `ah`, `co`, `preserve`, `status`.
 
 ### Options Panel
 
@@ -53,7 +57,13 @@ Registered via `Settings.RegisterCanvasLayoutCategory` (modern Settings API). Us
 | File | Role |
 |---|---|
 | `DefaultCurrentExpansion.toc` | Addon metadata, interface version, load order |
-| `DefaultCurrentExpansion.lua` | All addon logic (single file) |
+| `DefaultCurrentExpansion.lua` | All addon logic |
+| `Locales/enUS.lua` | English strings (master locale) |
+| `Locales/deDE.lua` | German translations |
+| `Locales/esES.lua` | Spanish translations (esES + esMX) |
+| `Locales/frFR.lua` | French translations |
+| `Locales/itIT.lua` | Italian translations |
+| `Locales/ptBR.lua` | Brazilian Portuguese translations |
 | `CHANGELOG.md` | Version history |
 | `export.sh` | Local zip packaging (reads version from TOC) |
 | `.pkgmeta` | BigWigsMods packager config for CurseForge releases |
@@ -97,7 +107,7 @@ These are the paths most likely to break on WoW patches:
 4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` — internal Blizzard methods, not part of a stable API
 5. **SetDisplayMode hook**: `AuctionHouseFrame.SetDisplayMode` — hooked via `hooksecurefunc` to detect tab switches; if Blizzard renames or removes this method, the hook silently stops firing (filter still applies on initial open, just not on tab switch)
 
-When any of these break, the addon fails silently (no error, filter just isn't set). Enable `/dce debug` to see which path failed.
+When any of these break, the addon fails silently (no error, filter just isn't set).
 
 ## Release Process
 
