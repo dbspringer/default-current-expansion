@@ -9,9 +9,14 @@ All notable changes to this project will be documented in this file.
 - New `/dce preserve` slash command to toggle the feature
 - Options panel checkbox for preserve filter changes
 - Filter state watcher to detect manual user changes in real-time
+- Localization support: German (deDE), Spanish (esES/esMX), French (frFR), Italian (itIT), Brazilian Portuguese (ptBR)
+- Locale displayed in options panel alongside version
 
 ### Changed
 - Filter re-apply on tab switch now applies the user's chosen state instead of always resetting to the addon default
+
+### Removed
+- Debug mode and `/dce debug` command (unnecessary for a simple addon)
 
 ## [1.3.0] - 2026-02-07
 

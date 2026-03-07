@@ -2,7 +2,7 @@
 ## Title: Default Current Expansion
 ## Notes: Automatically selects "Current Expansion Only" in Auction House and Crafting Orders filters
 ## Author: KidMoxie
-## Version: 1.3.0
+## Version: 1.4.0
 ## X-License: MIT
 ## X-Website: https://github.com/KidMoxie/default-current-expansion
 ## X-Curse-Project-ID: 1409180
@@ -10,5 +10,12 @@
 ## IconTexture: Interface\Icons\inv_misc_spyglass_02
 ## X-Category: Auction/Economy
 ## Category-enUS: Auctions
+
+Locales/enUS.lua
+Locales/deDE.lua
+Locales/esES.lua
+Locales/frFR.lua
+Locales/itIT.lua
+Locales/ptBR.lua
 
 DefaultCurrentExpansion.lua
