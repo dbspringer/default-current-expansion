@@ -8,7 +8,7 @@ local addon = {}
 local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
-	applyOnOpenOnly = false,
+	preserveFilterChanges = false,
 	debug = false
 }
 
@@ -16,6 +16,12 @@ local defaults = {
 function addon:InitDB()
 	if not DefaultCurrentExpansionDB then
 		DefaultCurrentExpansionDB = {}
+	end
+
+	-- Migrate renamed saved variables
+	if DefaultCurrentExpansionDB.applyOnOpenOnly ~= nil then
+		DefaultCurrentExpansionDB.preserveFilterChanges = DefaultCurrentExpansionDB.applyOnOpenOnly
+		DefaultCurrentExpansionDB.applyOnOpenOnly = nil
 	end
 
 	-- Merge defaults with saved settings
@@ -61,7 +67,7 @@ local function ApplyAuctionHouseFilter()
 					-- Hook SearchBar OnHide to capture filter state when Buy tab hides (before Blizzard resets it)
 					if not searchBarHooked then
 						searchBar:HookScript("OnHide", function()
-							if DefaultCurrentExpansionDB.applyOnOpenOnly and ahFilterAppliedThisSession then
+							if DefaultCurrentExpansionDB.preserveFilterChanges and ahFilterAppliedThisSession then
 								local currentFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 								if not filterButton.filters[currentFilter] then
 									userClearedFilter = true
@@ -100,8 +106,8 @@ local function OnAuctionHouseShow()
 	if not displayModeHooked and AuctionHouseFrame then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
-				if DefaultCurrentExpansionDB.applyOnOpenOnly and userClearedFilter then
-					DebugPrint("applyOnOpenOnly active, user cleared filter, skipping re-apply")
+				if DefaultCurrentExpansionDB.preserveFilterChanges and userClearedFilter then
+					DebugPrint("Preserving user filter change, skipping re-apply")
 					return
 				end
 				DebugPrint("Tab switch detected, re-applying filter")
@@ -219,17 +225,17 @@ function addon:CreateOptionsPanel()
 		end
 	end)
 
-	-- Apply On Open Only checkbox
-	local openOnlyCheckbox = CreateFrame("CheckButton", "DCE_OpenOnlyCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	openOnlyCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
-	openOnlyCheckbox.Text:SetText("Apply only when Auction House opens")
-	openOnlyCheckbox:SetChecked(DefaultCurrentExpansionDB.applyOnOpenOnly)
-	openOnlyCheckbox:SetScript("OnClick", function(self)
-		DefaultCurrentExpansionDB.applyOnOpenOnly = self:GetChecked()
-		if DefaultCurrentExpansionDB.applyOnOpenOnly then
-			Print("Apply on open only enabled")
+	-- Preserve Filter Changes checkbox
+	local preserveCheckbox = CreateFrame("CheckButton", "DCE_PreserveCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	preserveCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
+	preserveCheckbox.Text:SetText("Preserve filter changes")
+	preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
+	preserveCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.preserveFilterChanges = self:GetChecked()
+		if DefaultCurrentExpansionDB.preserveFilterChanges then
+			Print("Preserve filter changes enabled")
 		else
-			Print("Apply on open only disabled")
+			Print("Preserve filter changes disabled")
 		end
 	end)
 
@@ -237,7 +243,7 @@ function addon:CreateOptionsPanel()
 	panel:SetScript("OnShow", function()
 		ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
 		coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
-		openOnlyCheckbox:SetChecked(DefaultCurrentExpansionDB.applyOnOpenOnly)
+		preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
 	end)
 
 	-- Version info
@@ -263,7 +269,7 @@ local function SlashCommandHandler(msg)
 		Print("/dce opt - Open options menu")
 		Print("/dce ah - Toggle Auction House filtering")
 		Print("/dce co - Toggle Crafting Orders filtering")
-		Print("/dce openonly - Toggle apply on open only")
+		Print("/dce preserve - Toggle preserve filter changes")
 		Print("/dce debug - Toggle debug messages")
 		Print("/dce status - Show current settings")
 	elseif command == "opt" then
@@ -281,9 +287,9 @@ local function SlashCommandHandler(msg)
 		if DefaultCurrentExpansionDB.craftingOrders then
 			addon:SetupCraftingOrders()
 		end
-	elseif command == "openonly" then
-		DefaultCurrentExpansionDB.applyOnOpenOnly = not DefaultCurrentExpansionDB.applyOnOpenOnly
-		Print("Apply on open only", DefaultCurrentExpansionDB.applyOnOpenOnly and "enabled" or "disabled")
+	elseif command == "preserve" then
+		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
+		Print("Preserve filter changes", DefaultCurrentExpansionDB.preserveFilterChanges and "enabled" or "disabled")
 	elseif command == "debug" then
 		DefaultCurrentExpansionDB.debug = not DefaultCurrentExpansionDB.debug
 		Print("Debug mode", DefaultCurrentExpansionDB.debug and "enabled" or "disabled")
@@ -291,7 +297,7 @@ local function SlashCommandHandler(msg)
 		Print("Current Settings:")
 		Print("  Auction House:", DefaultCurrentExpansionDB.auctionHouse and "Yes" or "No")
 		Print("  Crafting Orders:", DefaultCurrentExpansionDB.craftingOrders and "Yes" or "No")
-		Print("  Apply On Open Only:", DefaultCurrentExpansionDB.applyOnOpenOnly and "Yes" or "No")
+		Print("  Preserve Filter Changes:", DefaultCurrentExpansionDB.preserveFilterChanges and "Yes" or "No")
 		Print("  Debug:", DefaultCurrentExpansionDB.debug and "Yes" or "No")
 	else
 		Print("Unknown command. Type /dce help for options")
