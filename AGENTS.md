@@ -1,8 +1,6 @@
-# CLAUDE.md
+# Default Current Expansion
 
-## What This Addon Does
-
-Default Current Expansion auto-enables the "Current Expansion Only" filter when opening the Auction House or Crafting Orders UI. That is the entire scope. It does not modify search results, item tooltips, pricing, or any other AH/CO behavior.
+Auto-enables the "Current Expansion Only" filter when opening the Auction House or Crafting Orders UI. That is the entire scope — no search results, tooltips, pricing, or other AH/CO behavior is modified.
 
 ## Architecture
 
@@ -10,64 +8,39 @@ Core logic in `DefaultCurrentExpansion.lua` with locale files in `Locales/`. No 
 
 ### Localization
 
-Global `DCE_L` table created in `Locales/enUS.lua` with all English strings. Non-English locale files (deDE, esES, frFR, itIT, ptBR) guard with `GetLocale()` and override keys for their language. The main file references `local L = DCE_L`. If a locale doesn't override a key, English is used as fallback.
+Global `DCE_L` table created in `Locales/enUS.lua` with all English strings. Non-English locale files guard with `GetLocale()` and override keys for their language. The main file references `local L = DCE_L`. Unoverridden keys fall back to English.
 
 ### Boot Sequence
 
-1. `ADDON_LOADED` (arg1 == `"DefaultCurrentExpansion"`) → init saved variables, create options panel, register slash commands
-2. `PLAYER_LOGIN` → create event listener frames for AH and CO
+1. File scope: slash commands (`/dce`, `/defaultcurrentexpansion`) are registered immediately
+2. `ADDON_LOADED` → init saved variables (`defaults` table), create options panel
+3. `PLAYER_LOGIN` → create AH and CO event listener frames
 
 ### Runtime Flow
 
-- `AUCTION_HOUSE_SHOW` → install `hooksecurefunc` on `AuctionHouseFrame.SetDisplayMode` (once, to catch tab switches) → call `ApplyAuctionHouseFilter()`
-- `ApplyAuctionHouseFilter()` → 0.1s delay via `C_Timer.After` → check `searchBar:IsShown()` (Buy tab only) → write `true` into `AuctionHouseFrame.SearchBar.FilterButton.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`, then call `searchBar:UpdateClearFiltersButton()`
-- The `SetDisplayMode` hook also calls `ApplyAuctionHouseFilter()` on tab switches, but skips Auctionator's empty-table `SetDisplayMode({})` calls via `next(displayMode) ~= nil`
-- `CRAFTINGORDERS_SHOW_CUSTOMER` → 0.1s delay → write `true` into `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`, then call `filterDropdown:ValidateResetState()`
+**Auction House** (`AUCTION_HOUSE_SHOW`):
+- Resets `userFilterOverride` and `lastAppliedFilterState`, cancels any active filter watcher
+- Installs `hooksecurefunc` on `AuctionHouseFrame.SetDisplayMode` (once) to catch tab switches
+- Calls `ApplyAuctionHouseFilter()` → 0.1s delay → checks `searchBar:IsShown()` (Buy tab only)
+- Writes `desiredState` into `AuctionHouseFrame.SearchBar.FilterButton.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`:
+  - If `preserveFilterChanges` is on and user has manually changed the filter, uses `userFilterOverride`
+  - Otherwise uses `DefaultCurrentExpansionDB.auctionHouse`
+- Calls `searchBar:UpdateClearFiltersButton()`, then starts a 0.2s ticker (`StartFilterWatcher`) that polls for user filter changes
+- The `SetDisplayMode` hook skips Auctionator's empty-table `SetDisplayMode({})` calls via `next(displayMode) ~= nil`
+
+**Crafting Orders** (`CRAFTINGORDERS_SHOW_CUSTOMER`):
+- 0.1s delay → writes `DefaultCurrentExpansionDB.craftingOrders` into `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly]`
+- Calls `filterDropdown:ValidateResetState()`
 
 The 0.1s delay exists because Blizzard frames are not fully initialized on the event fire. Do not remove it.
 
-### Named Frames
-
-| Frame | Purpose |
-|---|---|
-| `DCE_MainEventFrame` | Listens for ADDON_LOADED and PLAYER_LOGIN |
-| `DCE_AuctionHouseEventFrame` | Listens for AUCTION_HOUSE_SHOW |
-| `DCE_CraftingOrdersEventFrame` | Listens for CRAFTINGORDERS_SHOW_CUSTOMER |
-
 ### Saved Variables
 
-`DefaultCurrentExpansionDB` (account-wide), keys:
-
-| Key | Type | Default | Purpose |
-|---|---|---|---|
-| `auctionHouse` | boolean | `true` | Toggle AH filter automation |
-| `craftingOrders` | boolean | `true` | Toggle CO filter automation |
-| `preserveFilterChanges` | boolean | `true` | Preserve user's manual filter changes on tab switch |
-
-### Slash Commands
-
-`/dce` or `/defaultcurrentexpansion` with subcommands: `help`, `opt`, `ah`, `co`, `preserve`, `status`.
+`DefaultCurrentExpansionDB` (account-wide) — see the `defaults` table at the top of `DefaultCurrentExpansion.lua` for keys and default values.
 
 ### Options Panel
 
 Registered via `Settings.RegisterCanvasLayoutCategory` (modern Settings API). Uses `InterfaceOptionsCheckButtonTemplate` for checkboxes. Accessible at ESC → Settings → AddOns → Default Current Expansion.
-
-## File Map
-
-| File | Role |
-|---|---|
-| `DefaultCurrentExpansion.toc` | Addon metadata, interface version, load order |
-| `DefaultCurrentExpansion.lua` | All addon logic |
-| `Locales/enUS.lua` | English strings (master locale) |
-| `Locales/deDE.lua` | German translations |
-| `Locales/esES.lua` | Spanish translations (esES + esMX) |
-| `Locales/frFR.lua` | French translations |
-| `Locales/itIT.lua` | Italian translations |
-| `Locales/ptBR.lua` | Brazilian Portuguese translations |
-| `CHANGELOG.md` | Version history |
-| `export.sh` | Local zip packaging (reads version from TOC) |
-| `.pkgmeta` | BigWigsMods packager config for CurseForge releases |
-| `.github/workflows/release.yml` | CI: tag push → BigWigsMods/packager@v2 → CurseForge upload |
 
 ## Constraints
 
@@ -99,15 +72,13 @@ Registered via `Settings.RegisterCanvasLayoutCategory` (modern Settings API). Us
 
 ## Fragile Areas
 
-These are the paths most likely to break on WoW patches:
+These paths are most likely to break on WoW patches (failures are silent — no error, filter just isn't set):
 
-1. **AH filter path**: `AuctionHouseFrame.SearchBar.FilterButton.filters` — if Blizzard restructures the AH frame hierarchy, this breaks silently (filter just doesn't apply)
-2. **CO filter path**: `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters` — same risk
-3. **Enum value**: `Enum.AuctionHouseFilter.CurrentExpansionOnly` — could be renamed or removed in a major patch
-4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` — internal Blizzard methods, not part of a stable API
-5. **SetDisplayMode hook**: `AuctionHouseFrame.SetDisplayMode` — hooked via `hooksecurefunc` to detect tab switches; if Blizzard renames or removes this method, the hook silently stops firing (filter still applies on initial open, just not on tab switch)
-
-When any of these break, the addon fails silently (no error, filter just isn't set).
+1. **AH filter path**: `AuctionHouseFrame.SearchBar.FilterButton.filters`
+2. **CO filter path**: `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters`
+3. **Enum value**: `Enum.AuctionHouseFilter.CurrentExpansionOnly` — could be renamed or removed
+4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` — internal Blizzard methods, not a stable API
+5. **SetDisplayMode hook**: If Blizzard renames/removes this method, the hook silently stops (filter still applies on initial open, just not on tab switch)
 
 ## Release Process
 
@@ -122,8 +93,6 @@ For local testing: `./export.sh ~/Desktop` creates a zip named `DefaultCurrentEx
 ## References
 
 - [Warcraft Wiki (API docs)](https://warcraft.wiki.gg/wiki/World_of_Warcraft_API) — primary API reference
-- [Warcraft Wiki: Events](https://warcraft.wiki.gg/wiki/Events) — event names and payloads
-- [Warcraft Wiki: AUCTION_HOUSE_SHOW](https://warcraft.wiki.gg/wiki/AUCTION_HOUSE_SHOW)
 - [Blizzard FrameXML on GitHub](https://github.com/Gethe/wow-ui-source) — Gethe's mirror of retail FrameXML, use to verify frame hierarchy
-- [BigWigsMods Packager](https://github.com/BigWigsMods/packager) — the CI packaging tool
+- [Patch 12.0.0 API Changes](https://warcraft.wiki.gg/wiki/Patch_12.0.0/API_changes) — check after major patches for breaking changes to frame hierarchy
 - [CurseForge project page](https://www.curseforge.com/wow/addons/default-current-expansion) — published addon
