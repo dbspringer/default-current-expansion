@@ -1,10 +1,12 @@
 # Default Current Expansion
 
-A World of Warcraft addon that automatically selects "Current Expansion Only" filter in the Auction House and Crafting Orders interfaces.
+A World of Warcraft addon that automatically applies filters in the Auction House and Crafting Orders interfaces.
 
 ## Features
 
 - Automatically applies "Current Expansion Only" filter when opening the Auction House and when browsing Crafting Orders
+- Optionally applies "Usable Only" filter for the Auction House and Crafting Orders
+- Each filter has independent per-surface (AH/CO) toggles
 - Compatible with retail WoW 12.0.0+ (Midnight)
 
 ## Installation
@@ -27,16 +29,17 @@ Access the options panel via:
 - Slash command: `/dce opt`
 
 The options panel allows you to toggle:
-- **Auction House filtering** - Enable/disable AH filter automation
-- **Crafting Orders filtering** - Enable/disable CO filter automation
 - **Preserve filter changes** - Remember manual filter changes within an AH session
+- **Current Expansion Only** - Enable/disable per surface (Auction House, Crafting Orders)
+- **Usable Items Only** - Enable/disable per surface (Auction House, Crafting Orders)
 
 ### Slash Commands
 
 - `/dce help` - Display all available commands
 - `/dce opt` - Open the options panel
-- `/dce ah` - Toggle Auction House filtering
-- `/dce co` - Toggle Crafting Orders filtering
+- `/dce ah` - Toggle Current Expansion Only (Auction House)
+- `/dce co` - Toggle Current Expansion Only (Crafting Orders)
+- `/dce usable` - Toggle Usable Items Only (both surfaces)
 - `/dce preserve` - Toggle preserve filter changes
 - `/dce status` - Show current settings
 
@@ -44,14 +47,15 @@ The options panel allows you to toggle:
 
 After installation, simply:
 1. Open the Auction House or Crafting Orders interface
-2. The addon will automatically set the filter to "Current Expansion Only"
-3. Type `/dce status` to verify the addon is working
+2. The addon will automatically set the "Current Expansion Only" filter (enabled by default)
+3. To also enable "Usable Items Only", use `/dce usable` or the options panel
+4. Type `/dce status` to verify the addon is working
 
 ## Configuration
 
 **Disabling the Addon:**
 - To completely disable the addon, uncheck it in the AddOns menu at character select
-- To disable individual features (AH or CO only), use the options panel (`/dce opt`) or slash commands (`/dce ah` or `/dce co`)
+- To disable individual filters per surface, use the options panel (`/dce opt`) or slash commands (`/dce ah`, `/dce co`, `/dce usable`)
 
 ## Compatibility
 

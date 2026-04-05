@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [1.5.0] - 2026-04-04
 
 ### Added
+- "Usable Items Only" filter with independent Auction House and Crafting Orders toggles
+- New `/dce usable` slash command to toggle Usable Items Only for both surfaces
+- Options panel reorganized into filter sections (Current Expansion Only, Usable Items Only) with per-surface checkboxes
+- Enum existence guards (`FILTER_CEO`/`FILTER_USABLE`) for forward compatibility with WoW patches
 - `/dce` with no arguments now opens the options panel directly
+
+### Changed
+- Options panel: "Preserve filter changes" moved to top as a global setting
+- Filter watcher now only tracks filters the addon is actively managing
+- Updated all 6 locale files with translated strings for the new feature
 
 ### Fixed
 - Filter watcher now tracks subsequent manual toggles correctly within an AH session
