@@ -26,12 +26,13 @@ Global `DCE_L` table created in `Locales/enUS.lua` with all English strings. Non
   - If `preserveFilterChanges` is on and user has manually changed that filter, uses `userFilterOverride[filter]`
   - Otherwise sets the filter to `true`
   - Writes into `AuctionHouseFrame.SearchBar.FilterButton.filters[filterEnum]`
-- Calls `searchBar:UpdateClearFiltersButton()`, then starts a 0.2s ticker (`StartFilterWatcher`) that polls only the actively managed filters for user changes
+- Starts a 0.2s ticker (`StartFilterWatcher`) that polls only the actively managed filters for user changes
+- Note: `UpdateClearFiltersButton()` was intentionally removed to prevent taint propagation (see issue #10)
 - The `SetDisplayMode` hook skips Auctionator's empty-table `SetDisplayMode({})` calls via `next(displayMode) ~= nil`
 
 **Crafting Orders** (`CRAFTINGORDERS_SHOW_CUSTOMER`):
 - 0.1s delay → for each enabled filter (`FILTER_CEO` if `craftingOrders` is on, `FILTER_USABLE` if `usableOnlyCO` is on), writes `true` into the corresponding slot in `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters`
-- Calls `filterDropdown:ValidateResetState()`
+- Note: `ValidateResetState()` was intentionally removed to prevent taint propagation (see issue #10)
 
 The 0.1s delay exists because Blizzard frames are not fully initialized on the event fire. Do not remove it.
 
@@ -78,7 +79,7 @@ These paths are most likely to break on WoW patches (failures are silent — no 
 1. **AH filter path**: `AuctionHouseFrame.SearchBar.FilterButton.filters`
 2. **CO filter path**: `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters`
 3. **Enum values**: `Enum.AuctionHouseFilter.CurrentExpansionOnly` and `Enum.AuctionHouseFilter.UsableOnly` — could be renamed or removed (hoisted to `FILTER_CEO`/`FILTER_USABLE` locals with nil guards)
-4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` — internal Blizzard methods, not a stable API
+4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` were removed to prevent taint propagation — calling Blizzard frame methods from addon code taints the frame hierarchy (see issue #10). Do not re-add them.
 5. **SetDisplayMode hook**: If Blizzard renames/removes this method, the hook silently stops (filter still applies on initial open, just not on tab switch)
 
 ## Release Process
