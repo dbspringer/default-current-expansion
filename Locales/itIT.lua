@@ -8,12 +8,14 @@ L.ADDON_SUBTITLE = "Seleziona automaticamente il filtro 'Solo espansione corrent
 L.OPT_AUCTION_HOUSE = "Filtro casa d'aste"
 L.OPT_CRAFTING_ORDERS = "Filtro ordini di creazione"
 L.OPT_PRESERVE_FILTER = "Conserva modifiche filtro"
+L.OPT_USABLE_ONLY = "Solo oggetti utilizzabili"
 L.VERSION_LABEL = "Versione %s | Lingua: %s"
 
 -- Toggle messages
 L.MSG_AH_TOGGLE = "Filtro casa d'aste %s"
 L.MSG_CO_TOGGLE = "Filtro ordini di creazione %s"
 L.MSG_PRESERVE_TOGGLE = "Conserva modifiche filtro %s"
+L.MSG_USABLE_TOGGLE = "Solo oggetti utilizzabili %s"
 L.ENABLED = "attivato"
 L.DISABLED = "disattivato"
 
@@ -23,6 +25,7 @@ L.HELP_OPT = "/dce opt - Apri il menu opzioni"
 L.HELP_AH = "/dce ah - Attiva/disattiva filtro casa d'aste"
 L.HELP_CO = "/dce co - Attiva/disattiva filtro ordini di creazione"
 L.HELP_PRESERVE = "/dce preserve - Attiva/disattiva conserva modifiche filtro"
+L.HELP_USABLE = "/dce usable - Attiva/disattiva solo oggetti utilizzabili"
 L.HELP_STATUS = "/dce status - Mostra impostazioni attuali"
 
 -- Status
@@ -30,6 +33,7 @@ L.STATUS_HEADER = "Impostazioni attuali:"
 L.STATUS_AH = "  Casa d'aste: %s"
 L.STATUS_CO = "  Ordini di creazione: %s"
 L.STATUS_PRESERVE = "  Conserva modifiche filtro: %s"
+L.STATUS_USABLE = "  Solo oggetti utilizzabili: %s"
 L.YES = "Sì"
 L.NO = "No"
 
