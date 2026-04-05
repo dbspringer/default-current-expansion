@@ -37,7 +37,11 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
--- User's manual filter overrides for this AH session, keyed by filter enum (nil = use addon setting)
+-- Filter enum references (nil if Blizzard renames/removes them in a future patch)
+local FILTER_CEO = Enum.AuctionHouseFilter and Enum.AuctionHouseFilter.CurrentExpansionOnly
+local FILTER_USABLE = Enum.AuctionHouseFilter and Enum.AuctionHouseFilter.UsableOnly
+
+-- User's manual filter overrides for this AH session, keyed by filter enum (absent key = use addon setting)
 local userFilterOverride = {}
 -- What was last applied per filter, so the watcher can detect user changes
 local lastAppliedFilterState = {}
@@ -67,10 +71,16 @@ local function StartFilterWatcher()
 		local filterButton = searchBar.FilterButton
 		if not filterButton or not filterButton.filters then return end
 
-		for _, filter in ipairs({
-			Enum.AuctionHouseFilter.CurrentExpansionOnly,
-			Enum.AuctionHouseFilter.UsableOnly,
-		}) do
+		-- Only watch filters the addon is actively managing
+		local watchedFilters = {}
+		if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
+			watchedFilters[#watchedFilters + 1] = FILTER_CEO
+		end
+		if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
+			watchedFilters[#watchedFilters + 1] = FILTER_USABLE
+		end
+
+		for _, filter in ipairs(watchedFilters) do
 			local currentState = filterButton.filters[filter] and true or false
 			if lastAppliedFilterState[filter] ~= nil and currentState ~= lastAppliedFilterState[filter] then
 				userFilterOverride[filter] = currentState
@@ -89,30 +99,28 @@ local function ApplyAuctionHouseFilter()
 				local filterButton = searchBar.FilterButton
 
 				if filterButton.filters then
-					-- Apply Current Expansion Only filter (only if enabled for AH)
-					if DefaultCurrentExpansionDB.auctionHouse then
-						local ceoFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-						local ceoDesired
-						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[ceoFilter] ~= nil then
-							ceoDesired = userFilterOverride[ceoFilter]
+					-- Current Expansion Only
+					if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
+						local desired
+						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[FILTER_CEO] ~= nil then
+							desired = userFilterOverride[FILTER_CEO]
 						else
-							ceoDesired = true
+							desired = true
 						end
-						filterButton.filters[ceoFilter] = ceoDesired
-						lastAppliedFilterState[ceoFilter] = ceoDesired
+						filterButton.filters[FILTER_CEO] = desired
+						lastAppliedFilterState[FILTER_CEO] = desired
 					end
 
-					-- Apply Usable Only filter (only if enabled for AH)
-					if DefaultCurrentExpansionDB.usableOnlyAH then
-						local uoFilter = Enum.AuctionHouseFilter.UsableOnly
-						local uoDesired
-						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[uoFilter] ~= nil then
-							uoDesired = userFilterOverride[uoFilter]
+					-- Usable Only
+					if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
+						local desired
+						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[FILTER_USABLE] ~= nil then
+							desired = userFilterOverride[FILTER_USABLE]
 						else
-							uoDesired = true
+							desired = true
 						end
-						filterButton.filters[uoFilter] = uoDesired
-						lastAppliedFilterState[uoFilter] = uoDesired
+						filterButton.filters[FILTER_USABLE] = desired
+						lastAppliedFilterState[FILTER_USABLE] = desired
 					end
 
 					searchBar:UpdateClearFiltersButton()
@@ -154,11 +162,11 @@ local function OnCraftingOrdersShow()
 					local filterDropdown = searchBar.FilterDropdown
 
 					if filterDropdown.filters then
-						if DefaultCurrentExpansionDB.craftingOrders then
-							filterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly] = true
+						if FILTER_CEO and DefaultCurrentExpansionDB.craftingOrders then
+							filterDropdown.filters[FILTER_CEO] = true
 						end
-						if DefaultCurrentExpansionDB.usableOnlyCO then
-							filterDropdown.filters[Enum.AuctionHouseFilter.UsableOnly] = true
+						if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyCO then
+							filterDropdown.filters[FILTER_USABLE] = true
 						end
 						filterDropdown:ValidateResetState()
 					end
@@ -217,7 +225,7 @@ function addon:CreateOptionsPanel()
 	ceoHeader:SetText(L.OPT_SECTION_CEO)
 
 	local ceoAHCheckbox = CreateFrame("CheckButton", "DCE_CEOAHCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	ceoAHCheckbox:SetPoint("TOPLEFT", ceoHeader, "BOTTOMLEFT", 16, -4)
+	ceoAHCheckbox:SetPoint("TOPLEFT", ceoHeader, "BOTTOMLEFT", 0, -8)
 	ceoAHCheckbox.Text:SetText(L.OPT_AUCTION_HOUSE)
 	ceoAHCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
 	ceoAHCheckbox:SetScript("OnClick", function(self)
@@ -242,11 +250,11 @@ function addon:CreateOptionsPanel()
 
 	-- Usable Items Only section
 	local usableHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	usableHeader:SetPoint("TOPLEFT", ceoCOCheckbox, "BOTTOMLEFT", -16, -16)
+	usableHeader:SetPoint("TOPLEFT", ceoCOCheckbox, "BOTTOMLEFT", 0, -16)
 	usableHeader:SetText(L.OPT_SECTION_USABLE)
 
 	local usableAHCheckbox = CreateFrame("CheckButton", "DCE_UsableAHCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	usableAHCheckbox:SetPoint("TOPLEFT", usableHeader, "BOTTOMLEFT", 16, -4)
+	usableAHCheckbox:SetPoint("TOPLEFT", usableHeader, "BOTTOMLEFT", 0, -8)
 	usableAHCheckbox.Text:SetText(L.OPT_AUCTION_HOUSE)
 	usableAHCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyAH)
 	usableAHCheckbox:SetScript("OnClick", function(self)
@@ -318,9 +326,10 @@ local function SlashCommandHandler(msg)
 		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
 		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
 	elseif command == "usable" then
-		DefaultCurrentExpansionDB.usableOnlyAH = not DefaultCurrentExpansionDB.usableOnlyAH
-		DefaultCurrentExpansionDB.usableOnlyCO = not DefaultCurrentExpansionDB.usableOnlyCO
-		Print(string.format(L.MSG_USABLE_TOGGLE, DefaultCurrentExpansionDB.usableOnlyAH and L.ENABLED or L.DISABLED))
+		local newState = not (DefaultCurrentExpansionDB.usableOnlyAH or DefaultCurrentExpansionDB.usableOnlyCO)
+		DefaultCurrentExpansionDB.usableOnlyAH = newState
+		DefaultCurrentExpansionDB.usableOnlyCO = newState
+		Print(string.format(L.MSG_USABLE_TOGGLE, newState and L.ENABLED or L.DISABLED))
 	elseif command == "status" then
 		Print(L.STATUS_HEADER)
 		Print(string.format(L.STATUS_PRESERVE, DefaultCurrentExpansionDB.preserveFilterChanges and L.YES or L.NO))
