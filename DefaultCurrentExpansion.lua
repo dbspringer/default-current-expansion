@@ -114,7 +114,6 @@ local function ApplyAuctionHouseFilter()
 						ApplyOneFilter(filterButton.filters, FILTER_USABLE)
 					end
 
-					searchBar:UpdateClearFiltersButton()
 					StartFilterWatcher()
 				end
 			end
@@ -159,7 +158,6 @@ local function OnCraftingOrdersShow()
 						if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyCO then
 							filterDropdown.filters[FILTER_USABLE] = true
 						end
-						filterDropdown:ValidateResetState()
 					end
 				end
 			end

@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Updated all 6 locale files with translated strings for the new feature
 
 ### Fixed
+- ADDON_ACTION_FORBIDDEN error after extended gameplay sessions caused by taint propagation from Blizzard method calls (#10)
 - Filter watcher now tracks subsequent manual toggles correctly within an AH session
 - SetDisplayMode hook no longer duplicates after `/reload`
 - `/dce opt` no longer errors if called before addon is fully loaded
