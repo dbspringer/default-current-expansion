@@ -10,6 +10,7 @@ ignore:
   - .git
   - .gitignore
   - README.md
+  - AGENTS.md
   - CLAUDE.md
   - CLAUDE.local.md
   - .pkgmeta

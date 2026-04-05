@@ -23,12 +23,13 @@ The addon works automatically once enabled. You can customize its behavior using
 ### Options Panel
 
 Access the options panel via:
-- In-game: ESC → Interface → AddOns → Default Current Expansion
+- In-game: ESC → Settings → AddOns → Default Current Expansion
 - Slash command: `/dce opt`
 
 The options panel allows you to toggle:
 - **Auction House filtering** - Enable/disable AH filter automation
 - **Crafting Orders filtering** - Enable/disable CO filter automation
+- **Preserve filter changes** - Remember manual filter changes within an AH session
 
 ### Slash Commands
 
@@ -36,7 +37,7 @@ The options panel allows you to toggle:
 - `/dce opt` - Open the options panel
 - `/dce ah` - Toggle Auction House filtering
 - `/dce co` - Toggle Crafting Orders filtering
-- `/dce debug` - Toggle debug messages
+- `/dce preserve` - Toggle preserve filter changes
 - `/dce status` - Show current settings
 
 ### First Time Setup
@@ -45,20 +46,6 @@ After installation, simply:
 1. Open the Auction House or Crafting Orders interface
 2. The addon will automatically set the filter to "Current Expansion Only"
 3. Type `/dce status` to verify the addon is working
-
-## Testing
-
-To test the addon:
-
-1. **Auction House Test:**
-   - Open any Auction House
-   - Verify the "Current Expansion Only" filter is automatically selected
-   - Enable debug mode with `/dce debug` to see confirmation messages
-
-2. **Crafting Orders Test:**
-   - Open the Crafting Orders interface
-   - Verify the expansion filter is set to current expansion
-   - Check debug messages for confirmation
 
 ## Configuration
 

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-04-04
+
+### Added
+- `/dce` with no arguments now opens the options panel directly
+
+### Fixed
+- Filter watcher now tracks subsequent manual toggles correctly within an AH session
+- SetDisplayMode hook no longer duplicates after `/reload`
+- `/dce opt` no longer errors if called before addon is fully loaded
+- Events unregistered after handling to avoid unnecessary processing
+
 ## [1.4.0] - 2026-03-07
 
 ### Added
