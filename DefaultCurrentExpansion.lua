@@ -32,7 +32,6 @@ function addon:InitDB()
 	DefaultCurrentExpansionDB.usableOnly = nil
 end
 
--- Print function for user messages
 local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
@@ -45,10 +44,8 @@ local FILTER_USABLE = Enum.AuctionHouseFilter and Enum.AuctionHouseFilter.Usable
 local userFilterOverride = {}
 -- What was last applied per filter, so the watcher can detect user changes
 local lastAppliedFilterState = {}
--- Ticker that watches for user filter changes
 local filterWatcher = nil
 
--- Cancel any active filter watcher
 local function CancelFilterWatcher()
 	if filterWatcher then
 		filterWatcher:Cancel()
@@ -56,10 +53,19 @@ local function CancelFilterWatcher()
 	end
 end
 
--- Start watching for user filter changes (polls while Buy tab is shown)
+-- Polls while Buy tab is shown to detect manual filter changes
 local function StartFilterWatcher()
 	CancelFilterWatcher()
 	if not DefaultCurrentExpansionDB.preserveFilterChanges then return end
+
+	-- Built once per watcher start; settings can't change while AH is open
+	local watchedFilters = {}
+	if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
+		watchedFilters[#watchedFilters + 1] = FILTER_CEO
+	end
+	if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
+		watchedFilters[#watchedFilters + 1] = FILTER_USABLE
+	end
 
 	filterWatcher = C_Timer.NewTicker(0.2, function()
 		if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
@@ -71,15 +77,6 @@ local function StartFilterWatcher()
 		local filterButton = searchBar.FilterButton
 		if not filterButton or not filterButton.filters then return end
 
-		-- Only watch filters the addon is actively managing
-		local watchedFilters = {}
-		if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
-			watchedFilters[#watchedFilters + 1] = FILTER_CEO
-		end
-		if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
-			watchedFilters[#watchedFilters + 1] = FILTER_USABLE
-		end
-
 		for _, filter in ipairs(watchedFilters) do
 			local currentState = filterButton.filters[filter] and true or false
 			if lastAppliedFilterState[filter] ~= nil and currentState ~= lastAppliedFilterState[filter] then
@@ -90,7 +87,18 @@ local function StartFilterWatcher()
 	end)
 end
 
--- Apply AH filters after a short delay (frames need time to initialize)
+local function ApplyOneFilter(filters, filterEnum)
+	local desired
+	if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[filterEnum] ~= nil then
+		desired = userFilterOverride[filterEnum]
+	else
+		desired = true
+	end
+	filters[filterEnum] = desired
+	lastAppliedFilterState[filterEnum] = desired
+end
+
+-- Frames need 0.1s after AUCTION_HOUSE_SHOW to fully initialize
 local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
@@ -99,28 +107,11 @@ local function ApplyAuctionHouseFilter()
 				local filterButton = searchBar.FilterButton
 
 				if filterButton.filters then
-					-- Current Expansion Only
 					if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
-						local desired
-						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[FILTER_CEO] ~= nil then
-							desired = userFilterOverride[FILTER_CEO]
-						else
-							desired = true
-						end
-						filterButton.filters[FILTER_CEO] = desired
-						lastAppliedFilterState[FILTER_CEO] = desired
+						ApplyOneFilter(filterButton.filters, FILTER_CEO)
 					end
-
-					-- Usable Only
 					if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
-						local desired
-						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[FILTER_USABLE] ~= nil then
-							desired = userFilterOverride[FILTER_USABLE]
-						else
-							desired = true
-						end
-						filterButton.filters[FILTER_USABLE] = desired
-						lastAppliedFilterState[FILTER_USABLE] = desired
+						ApplyOneFilter(filterButton.filters, FILTER_USABLE)
 					end
 
 					searchBar:UpdateClearFiltersButton()
@@ -150,7 +141,7 @@ local function OnAuctionHouseShow()
 	ApplyAuctionHouseFilter()
 end
 
--- Crafting Orders event handler
+-- CO has no filter watcher — preserveFilterChanges only applies to the AH
 local function OnCraftingOrdersShow()
 	C_Timer.After(0.1, function()
 		if ProfessionsCustomerOrdersFrame and ProfessionsCustomerOrdersFrame:IsShown() then
@@ -176,7 +167,6 @@ local function OnCraftingOrdersShow()
 	end)
 end
 
--- Auction House filter automation
 function addon:SetupAuctionHouse()
 	if not self.ahFrame then
 		self.ahFrame = CreateFrame("Frame", "DCE_AuctionHouseEventFrame")
@@ -185,7 +175,6 @@ function addon:SetupAuctionHouse()
 	end
 end
 
--- Crafting Orders filter automation
 function addon:SetupCraftingOrders()
 	if not self.coFrame then
 		self.coFrame = CreateFrame("Frame", "DCE_CraftingOrdersEventFrame")
@@ -326,6 +315,7 @@ local function SlashCommandHandler(msg)
 		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
 		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
 	elseif command == "usable" then
+		-- If either surface is on, turn both off; otherwise turn both on
 		local newState = not (DefaultCurrentExpansionDB.usableOnlyAH or DefaultCurrentExpansionDB.usableOnlyCO)
 		DefaultCurrentExpansionDB.usableOnlyAH = newState
 		DefaultCurrentExpansionDB.usableOnlyCO = newState
