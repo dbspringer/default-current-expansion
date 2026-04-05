@@ -4,36 +4,40 @@ local L = DCE_L
 
 -- Options panel
 L.ADDON_TITLE = "Expansão atual padrão"
-L.ADDON_SUBTITLE = "Seleciona automaticamente o filtro 'Somente expansão atual'"
-L.OPT_AUCTION_HOUSE = "Filtragem da casa de leilões"
-L.OPT_CRAFTING_ORDERS = "Filtragem de pedidos de criação"
+L.ADDON_SUBTITLE = "Aplica automaticamente filtros da casa de leilões e pedidos de criação"
 L.OPT_PRESERVE_FILTER = "Preservar alterações de filtro"
-L.OPT_USABLE_ONLY = "Somente itens utilizáveis"
+L.OPT_SECTION_CEO = "Somente expansão atual"
+L.OPT_SECTION_USABLE = "Somente itens utilizáveis"
+L.OPT_AUCTION_HOUSE = "Casa de leilões"
+L.OPT_CRAFTING_ORDERS = "Pedidos de criação"
 L.VERSION_LABEL = "Versão %s | Idioma: %s"
 
 -- Toggle messages
-L.MSG_AH_TOGGLE = "Filtragem da casa de leilões %s"
-L.MSG_CO_TOGGLE = "Filtragem de pedidos de criação %s"
+L.MSG_AH_TOGGLE = "Somente expansão atual (Casa de leilões) %s"
+L.MSG_CO_TOGGLE = "Somente expansão atual (Pedidos de criação) %s"
 L.MSG_PRESERVE_TOGGLE = "Preservar alterações de filtro %s"
 L.MSG_USABLE_TOGGLE = "Somente itens utilizáveis %s"
+L.MSG_USABLE_AH_TOGGLE = "Somente itens utilizáveis (Casa de leilões) %s"
+L.MSG_USABLE_CO_TOGGLE = "Somente itens utilizáveis (Pedidos de criação) %s"
 L.ENABLED = "ativado"
 L.DISABLED = "desativado"
 
 -- Slash command help
 L.HELP_HEADER = "Comandos:"
 L.HELP_OPT = "/dce opt - Abrir menu de opções"
-L.HELP_AH = "/dce ah - Alternar filtragem da casa de leilões"
-L.HELP_CO = "/dce co - Alternar filtragem de pedidos de criação"
+L.HELP_AH = "/dce ah - Alternar somente expansão atual (Casa de leilões)"
+L.HELP_CO = "/dce co - Alternar somente expansão atual (Pedidos de criação)"
 L.HELP_PRESERVE = "/dce preserve - Alternar preservar alterações de filtro"
 L.HELP_USABLE = "/dce usable - Alternar somente itens utilizáveis"
 L.HELP_STATUS = "/dce status - Mostrar configurações atuais"
 
 -- Status
 L.STATUS_HEADER = "Configurações atuais:"
-L.STATUS_AH = "  Casa de leilões: %s"
-L.STATUS_CO = "  Pedidos de criação: %s"
 L.STATUS_PRESERVE = "  Preservar alterações de filtro: %s"
-L.STATUS_USABLE = "  Somente itens utilizáveis: %s"
+L.STATUS_CEO_AH = "  Somente expansão atual (CL): %s"
+L.STATUS_CEO_CO = "  Somente expansão atual (PC): %s"
+L.STATUS_USABLE_AH = "  Somente itens utilizáveis (CL): %s"
+L.STATUS_USABLE_CO = "  Somente itens utilizáveis (PC): %s"
 L.YES = "Sim"
 L.NO = "Não"
 

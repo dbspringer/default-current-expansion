@@ -1,5 +1,5 @@
 -- Default Current Expansion
--- Automatically selects "Current Expansion Only" filter in AH and Crafting Orders
+-- Automatically applies AH and Crafting Orders filters (Current Expansion Only, Usable Only)
 
 local addonName = "DefaultCurrentExpansion"
 local addon = {}
@@ -10,7 +10,8 @@ local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
 	preserveFilterChanges = true,
-	usableOnly = false,
+	usableOnlyAH = false,
+	usableOnlyCO = false,
 }
 
 -- Initialize saved variables
@@ -28,6 +29,7 @@ function addon:InitDB()
 
 	-- Clean up removed keys from existing saved variables
 	DefaultCurrentExpansionDB.debug = nil
+	DefaultCurrentExpansionDB.usableOnly = nil
 end
 
 -- Print function for user messages
@@ -87,29 +89,33 @@ local function ApplyAuctionHouseFilter()
 				local filterButton = searchBar.FilterButton
 
 				if filterButton.filters then
-					-- Apply Current Expansion Only filter
-					local ceoFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-					local ceoDesired
-					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[ceoFilter] ~= nil then
-						ceoDesired = userFilterOverride[ceoFilter]
-					else
-						ceoDesired = DefaultCurrentExpansionDB.auctionHouse
+					-- Apply Current Expansion Only filter (only if enabled for AH)
+					if DefaultCurrentExpansionDB.auctionHouse then
+						local ceoFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+						local ceoDesired
+						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[ceoFilter] ~= nil then
+							ceoDesired = userFilterOverride[ceoFilter]
+						else
+							ceoDesired = true
+						end
+						filterButton.filters[ceoFilter] = ceoDesired
+						lastAppliedFilterState[ceoFilter] = ceoDesired
 					end
-					filterButton.filters[ceoFilter] = ceoDesired
 
-					-- Apply Usable Only filter
-					local uoFilter = Enum.AuctionHouseFilter.UsableOnly
-					local uoDesired
-					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[uoFilter] ~= nil then
-						uoDesired = userFilterOverride[uoFilter]
-					else
-						uoDesired = DefaultCurrentExpansionDB.usableOnly
+					-- Apply Usable Only filter (only if enabled for AH)
+					if DefaultCurrentExpansionDB.usableOnlyAH then
+						local uoFilter = Enum.AuctionHouseFilter.UsableOnly
+						local uoDesired
+						if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[uoFilter] ~= nil then
+							uoDesired = userFilterOverride[uoFilter]
+						else
+							uoDesired = true
+						end
+						filterButton.filters[uoFilter] = uoDesired
+						lastAppliedFilterState[uoFilter] = uoDesired
 					end
-					filterButton.filters[uoFilter] = uoDesired
 
 					searchBar:UpdateClearFiltersButton()
-					lastAppliedFilterState[ceoFilter] = ceoDesired
-					lastAppliedFilterState[uoFilter] = uoDesired
 					StartFilterWatcher()
 				end
 			end
@@ -148,8 +154,12 @@ local function OnCraftingOrdersShow()
 					local filterDropdown = searchBar.FilterDropdown
 
 					if filterDropdown.filters then
-						filterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly] = DefaultCurrentExpansionDB.craftingOrders
-						filterDropdown.filters[Enum.AuctionHouseFilter.UsableOnly] = DefaultCurrentExpansionDB.usableOnly
+						if DefaultCurrentExpansionDB.craftingOrders then
+							filterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly] = true
+						end
+						if DefaultCurrentExpansionDB.usableOnlyCO then
+							filterDropdown.filters[Enum.AuctionHouseFilter.UsableOnly] = true
+						end
 						filterDropdown:ValidateResetState()
 					end
 				end
@@ -191,47 +201,9 @@ function addon:CreateOptionsPanel()
 	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
 	subtitle:SetText(L.ADDON_SUBTITLE)
 
-	-- Auction House checkbox
-	local ahCheckbox = CreateFrame("CheckButton", "DCE_AHCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	ahCheckbox:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
-	ahCheckbox.Text:SetText(L.OPT_AUCTION_HOUSE)
-	ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
-	ahCheckbox:SetScript("OnClick", function(self)
-		DefaultCurrentExpansionDB.auctionHouse = self:GetChecked()
-		-- Ensure the frame is set up if it doesn't exist yet
-		if not addon.ahFrame then
-			addon:SetupAuctionHouse()
-		end
-		Print(string.format(L.MSG_AH_TOGGLE, DefaultCurrentExpansionDB.auctionHouse and L.ENABLED or L.DISABLED))
-	end)
-
-	-- Crafting Orders checkbox
-	local coCheckbox = CreateFrame("CheckButton", "DCE_COCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	coCheckbox:SetPoint("TOPLEFT", ahCheckbox, "BOTTOMLEFT", 0, -8)
-	coCheckbox.Text:SetText(L.OPT_CRAFTING_ORDERS)
-	coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
-	coCheckbox:SetScript("OnClick", function(self)
-		DefaultCurrentExpansionDB.craftingOrders = self:GetChecked()
-		-- Ensure the frame is set up if it doesn't exist yet
-		if not addon.coFrame then
-			addon:SetupCraftingOrders()
-		end
-		Print(string.format(L.MSG_CO_TOGGLE, DefaultCurrentExpansionDB.craftingOrders and L.ENABLED or L.DISABLED))
-	end)
-
-	-- Usable Only checkbox
-	local usableCheckbox = CreateFrame("CheckButton", "DCE_UsableCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	usableCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
-	usableCheckbox.Text:SetText(L.OPT_USABLE_ONLY)
-	usableCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnly)
-	usableCheckbox:SetScript("OnClick", function(self)
-		DefaultCurrentExpansionDB.usableOnly = self:GetChecked()
-		Print(string.format(L.MSG_USABLE_TOGGLE, DefaultCurrentExpansionDB.usableOnly and L.ENABLED or L.DISABLED))
-	end)
-
-	-- Preserve Filter Changes checkbox
+	-- Preserve Filter Changes checkbox (top-level setting)
 	local preserveCheckbox = CreateFrame("CheckButton", "DCE_PreserveCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	preserveCheckbox:SetPoint("TOPLEFT", usableCheckbox, "BOTTOMLEFT", 0, -8)
+	preserveCheckbox:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
 	preserveCheckbox.Text:SetText(L.OPT_PRESERVE_FILTER)
 	preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
 	preserveCheckbox:SetScript("OnClick", function(self)
@@ -239,12 +211,65 @@ function addon:CreateOptionsPanel()
 		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
 	end)
 
+	-- Current Expansion Only section
+	local ceoHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	ceoHeader:SetPoint("TOPLEFT", preserveCheckbox, "BOTTOMLEFT", 0, -16)
+	ceoHeader:SetText(L.OPT_SECTION_CEO)
+
+	local ceoAHCheckbox = CreateFrame("CheckButton", "DCE_CEOAHCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	ceoAHCheckbox:SetPoint("TOPLEFT", ceoHeader, "BOTTOMLEFT", 16, -4)
+	ceoAHCheckbox.Text:SetText(L.OPT_AUCTION_HOUSE)
+	ceoAHCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
+	ceoAHCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.auctionHouse = self:GetChecked()
+		if not addon.ahFrame then
+			addon:SetupAuctionHouse()
+		end
+		Print(string.format(L.MSG_AH_TOGGLE, DefaultCurrentExpansionDB.auctionHouse and L.ENABLED or L.DISABLED))
+	end)
+
+	local ceoCOCheckbox = CreateFrame("CheckButton", "DCE_CEOCOCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	ceoCOCheckbox:SetPoint("TOPLEFT", ceoAHCheckbox, "BOTTOMLEFT", 0, -4)
+	ceoCOCheckbox.Text:SetText(L.OPT_CRAFTING_ORDERS)
+	ceoCOCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
+	ceoCOCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.craftingOrders = self:GetChecked()
+		if not addon.coFrame then
+			addon:SetupCraftingOrders()
+		end
+		Print(string.format(L.MSG_CO_TOGGLE, DefaultCurrentExpansionDB.craftingOrders and L.ENABLED or L.DISABLED))
+	end)
+
+	-- Usable Items Only section
+	local usableHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	usableHeader:SetPoint("TOPLEFT", ceoCOCheckbox, "BOTTOMLEFT", -16, -16)
+	usableHeader:SetText(L.OPT_SECTION_USABLE)
+
+	local usableAHCheckbox = CreateFrame("CheckButton", "DCE_UsableAHCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	usableAHCheckbox:SetPoint("TOPLEFT", usableHeader, "BOTTOMLEFT", 16, -4)
+	usableAHCheckbox.Text:SetText(L.OPT_AUCTION_HOUSE)
+	usableAHCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyAH)
+	usableAHCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.usableOnlyAH = self:GetChecked()
+		Print(string.format(L.MSG_USABLE_AH_TOGGLE, DefaultCurrentExpansionDB.usableOnlyAH and L.ENABLED or L.DISABLED))
+	end)
+
+	local usableCOCheckbox = CreateFrame("CheckButton", "DCE_UsableCOCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	usableCOCheckbox:SetPoint("TOPLEFT", usableAHCheckbox, "BOTTOMLEFT", 0, -4)
+	usableCOCheckbox.Text:SetText(L.OPT_CRAFTING_ORDERS)
+	usableCOCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyCO)
+	usableCOCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.usableOnlyCO = self:GetChecked()
+		Print(string.format(L.MSG_USABLE_CO_TOGGLE, DefaultCurrentExpansionDB.usableOnlyCO and L.ENABLED or L.DISABLED))
+	end)
+
 	-- Refresh checkbox states when panel is shown
 	panel:SetScript("OnShow", function()
-		ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
-		coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
-		usableCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnly)
 		preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
+		ceoAHCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
+		ceoCOCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
+		usableAHCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyAH)
+		usableCOCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyCO)
 	end)
 
 	-- Version info
@@ -293,14 +318,16 @@ local function SlashCommandHandler(msg)
 		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
 		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
 	elseif command == "usable" then
-		DefaultCurrentExpansionDB.usableOnly = not DefaultCurrentExpansionDB.usableOnly
-		Print(string.format(L.MSG_USABLE_TOGGLE, DefaultCurrentExpansionDB.usableOnly and L.ENABLED or L.DISABLED))
+		DefaultCurrentExpansionDB.usableOnlyAH = not DefaultCurrentExpansionDB.usableOnlyAH
+		DefaultCurrentExpansionDB.usableOnlyCO = not DefaultCurrentExpansionDB.usableOnlyCO
+		Print(string.format(L.MSG_USABLE_TOGGLE, DefaultCurrentExpansionDB.usableOnlyAH and L.ENABLED or L.DISABLED))
 	elseif command == "status" then
 		Print(L.STATUS_HEADER)
-		Print(string.format(L.STATUS_AH, DefaultCurrentExpansionDB.auctionHouse and L.YES or L.NO))
-		Print(string.format(L.STATUS_CO, DefaultCurrentExpansionDB.craftingOrders and L.YES or L.NO))
 		Print(string.format(L.STATUS_PRESERVE, DefaultCurrentExpansionDB.preserveFilterChanges and L.YES or L.NO))
-		Print(string.format(L.STATUS_USABLE, DefaultCurrentExpansionDB.usableOnly and L.YES or L.NO))
+		Print(string.format(L.STATUS_CEO_AH, DefaultCurrentExpansionDB.auctionHouse and L.YES or L.NO))
+		Print(string.format(L.STATUS_CEO_CO, DefaultCurrentExpansionDB.craftingOrders and L.YES or L.NO))
+		Print(string.format(L.STATUS_USABLE_AH, DefaultCurrentExpansionDB.usableOnlyAH and L.YES or L.NO))
+		Print(string.format(L.STATUS_USABLE_CO, DefaultCurrentExpansionDB.usableOnlyCO and L.YES or L.NO))
 	else
 		Print(L.MSG_UNKNOWN_CMD)
 	end
