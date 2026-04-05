@@ -68,6 +68,7 @@ local function StartFilterWatcher()
 		local currentState = filterButton.filters[filter] and true or false
 		if currentState ~= lastAppliedFilterState then
 			userFilterOverride = currentState
+			lastAppliedFilterState = currentState
 		end
 	end)
 end
@@ -101,20 +102,18 @@ end
 
 -- Auction House event handler
 -- Hooks SetDisplayMode to catch tab switches (e.g. returning from Auctionator's Shopping tab)
-local displayModeHooked = false
-
 local function OnAuctionHouseShow()
 	userFilterOverride = nil
 	lastAppliedFilterState = nil
 	CancelFilterWatcher()
-	if not displayModeHooked and AuctionHouseFrame then
+	if AuctionHouseFrame and not AuctionHouseFrame.DCE_displayModeHooked then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
 			if displayMode and next(displayMode) ~= nil then
 				CancelFilterWatcher()
 				ApplyAuctionHouseFilter()
 			end
 		end)
-		displayModeHooked = true
+		AuctionHouseFrame.DCE_displayModeHooked = true
 	end
 
 	ApplyAuctionHouseFilter()
@@ -238,16 +237,17 @@ end
 local function SlashCommandHandler(msg)
 	local command = msg:lower():trim()
 
-	if command == "" or command == "help" then
+	if command == "" or command == "opt" then
+		if addon.settingsCategory then
+			Settings.OpenToCategory(addon.settingsCategory:GetID())
+		end
+	elseif command == "help" then
 		Print(L.HELP_HEADER)
 		Print(L.HELP_OPT)
 		Print(L.HELP_AH)
 		Print(L.HELP_CO)
 		Print(L.HELP_PRESERVE)
 		Print(L.HELP_STATUS)
-	elseif command == "opt" then
-		-- Open the addon settings panel
-		Settings.OpenToCategory(addon.settingsCategory:GetID())
 	elseif command == "ah" then
 		DefaultCurrentExpansionDB.auctionHouse = not DefaultCurrentExpansionDB.auctionHouse
 		Print(string.format(L.MSG_AH_TOGGLE, DefaultCurrentExpansionDB.auctionHouse and L.ENABLED or L.DISABLED))
@@ -287,8 +287,10 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == addonName then
 		addon:InitDB()
 		addon:CreateOptionsPanel()
+		eventFrame:UnregisterEvent("ADDON_LOADED")
 	elseif event == "PLAYER_LOGIN" then
 		addon:SetupAuctionHouse()
 		addon:SetupCraftingOrders()
+		eventFrame:UnregisterEvent("PLAYER_LOGIN")
 	end
 end)
