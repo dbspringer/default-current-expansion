@@ -10,6 +10,7 @@ local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
 	preserveFilterChanges = true,
+	usableOnly = false,
 }
 
 -- Initialize saved variables
@@ -34,10 +35,10 @@ local function Print(...)
 	print("|cff00ff00[Default Current Expansion]|r", ...)
 end
 
--- User's manual filter override for this AH session (nil = use addon setting)
-local userFilterOverride = nil
--- What was last applied, so the watcher can detect user changes
-local lastAppliedFilterState = nil
+-- User's manual filter overrides for this AH session, keyed by filter enum (nil = use addon setting)
+local userFilterOverride = {}
+-- What was last applied per filter, so the watcher can detect user changes
+local lastAppliedFilterState = {}
 -- Ticker that watches for user filter changes
 local filterWatcher = nil
 
@@ -64,35 +65,51 @@ local function StartFilterWatcher()
 		local filterButton = searchBar.FilterButton
 		if not filterButton or not filterButton.filters then return end
 
-		local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
-		local currentState = filterButton.filters[filter] and true or false
-		if currentState ~= lastAppliedFilterState then
-			userFilterOverride = currentState
-			lastAppliedFilterState = currentState
+		for _, filter in ipairs({
+			Enum.AuctionHouseFilter.CurrentExpansionOnly,
+			Enum.AuctionHouseFilter.UsableOnly,
+		}) do
+			local currentState = filterButton.filters[filter] and true or false
+			if lastAppliedFilterState[filter] ~= nil and currentState ~= lastAppliedFilterState[filter] then
+				userFilterOverride[filter] = currentState
+			end
+			lastAppliedFilterState[filter] = currentState
 		end
 	end)
 end
 
--- Apply AH filter after a short delay (frames need time to initialize)
+-- Apply AH filters after a short delay (frames need time to initialize)
 local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
 			if searchBar and searchBar:IsShown() and searchBar.FilterButton then
 				local filterButton = searchBar.FilterButton
-				local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
 				if filterButton.filters then
-					-- Use user's override if preserve mode is on, otherwise use addon setting
-					local desiredState
-					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride ~= nil then
-						desiredState = userFilterOverride
+					-- Apply Current Expansion Only filter
+					local ceoFilter = Enum.AuctionHouseFilter.CurrentExpansionOnly
+					local ceoDesired
+					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[ceoFilter] ~= nil then
+						ceoDesired = userFilterOverride[ceoFilter]
 					else
-						desiredState = DefaultCurrentExpansionDB.auctionHouse
+						ceoDesired = DefaultCurrentExpansionDB.auctionHouse
 					end
-					filterButton.filters[filter] = desiredState
+					filterButton.filters[ceoFilter] = ceoDesired
+
+					-- Apply Usable Only filter
+					local uoFilter = Enum.AuctionHouseFilter.UsableOnly
+					local uoDesired
+					if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[uoFilter] ~= nil then
+						uoDesired = userFilterOverride[uoFilter]
+					else
+						uoDesired = DefaultCurrentExpansionDB.usableOnly
+					end
+					filterButton.filters[uoFilter] = uoDesired
+
 					searchBar:UpdateClearFiltersButton()
-					lastAppliedFilterState = desiredState
+					lastAppliedFilterState[ceoFilter] = ceoDesired
+					lastAppliedFilterState[uoFilter] = uoDesired
 					StartFilterWatcher()
 				end
 			end
@@ -103,8 +120,8 @@ end
 -- Auction House event handler
 -- Hooks SetDisplayMode to catch tab switches (e.g. returning from Auctionator's Shopping tab)
 local function OnAuctionHouseShow()
-	userFilterOverride = nil
-	lastAppliedFilterState = nil
+	userFilterOverride = {}
+	lastAppliedFilterState = {}
 	CancelFilterWatcher()
 	if AuctionHouseFrame and not AuctionHouseFrame.DCE_displayModeHooked then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
@@ -129,10 +146,10 @@ local function OnCraftingOrdersShow()
 
 				if searchBar.FilterDropdown then
 					local filterDropdown = searchBar.FilterDropdown
-					local filter = Enum.AuctionHouseFilter.CurrentExpansionOnly
 
 					if filterDropdown.filters then
-						filterDropdown.filters[filter] = DefaultCurrentExpansionDB.craftingOrders
+						filterDropdown.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly] = DefaultCurrentExpansionDB.craftingOrders
+						filterDropdown.filters[Enum.AuctionHouseFilter.UsableOnly] = DefaultCurrentExpansionDB.usableOnly
 						filterDropdown:ValidateResetState()
 					end
 				end
@@ -202,9 +219,19 @@ function addon:CreateOptionsPanel()
 		Print(string.format(L.MSG_CO_TOGGLE, DefaultCurrentExpansionDB.craftingOrders and L.ENABLED or L.DISABLED))
 	end)
 
+	-- Usable Only checkbox
+	local usableCheckbox = CreateFrame("CheckButton", "DCE_UsableCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
+	usableCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
+	usableCheckbox.Text:SetText(L.OPT_USABLE_ONLY)
+	usableCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnly)
+	usableCheckbox:SetScript("OnClick", function(self)
+		DefaultCurrentExpansionDB.usableOnly = self:GetChecked()
+		Print(string.format(L.MSG_USABLE_TOGGLE, DefaultCurrentExpansionDB.usableOnly and L.ENABLED or L.DISABLED))
+	end)
+
 	-- Preserve Filter Changes checkbox
 	local preserveCheckbox = CreateFrame("CheckButton", "DCE_PreserveCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	preserveCheckbox:SetPoint("TOPLEFT", coCheckbox, "BOTTOMLEFT", 0, -8)
+	preserveCheckbox:SetPoint("TOPLEFT", usableCheckbox, "BOTTOMLEFT", 0, -8)
 	preserveCheckbox.Text:SetText(L.OPT_PRESERVE_FILTER)
 	preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
 	preserveCheckbox:SetScript("OnClick", function(self)
@@ -216,6 +243,7 @@ function addon:CreateOptionsPanel()
 	panel:SetScript("OnShow", function()
 		ahCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
 		coCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
+		usableCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnly)
 		preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
 	end)
 
@@ -247,6 +275,7 @@ local function SlashCommandHandler(msg)
 		Print(L.HELP_AH)
 		Print(L.HELP_CO)
 		Print(L.HELP_PRESERVE)
+		Print(L.HELP_USABLE)
 		Print(L.HELP_STATUS)
 	elseif command == "ah" then
 		DefaultCurrentExpansionDB.auctionHouse = not DefaultCurrentExpansionDB.auctionHouse
@@ -263,11 +292,15 @@ local function SlashCommandHandler(msg)
 	elseif command == "preserve" then
 		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
 		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
+	elseif command == "usable" then
+		DefaultCurrentExpansionDB.usableOnly = not DefaultCurrentExpansionDB.usableOnly
+		Print(string.format(L.MSG_USABLE_TOGGLE, DefaultCurrentExpansionDB.usableOnly and L.ENABLED or L.DISABLED))
 	elseif command == "status" then
 		Print(L.STATUS_HEADER)
 		Print(string.format(L.STATUS_AH, DefaultCurrentExpansionDB.auctionHouse and L.YES or L.NO))
 		Print(string.format(L.STATUS_CO, DefaultCurrentExpansionDB.craftingOrders and L.YES or L.NO))
 		Print(string.format(L.STATUS_PRESERVE, DefaultCurrentExpansionDB.preserveFilterChanges and L.YES or L.NO))
+		Print(string.format(L.STATUS_USABLE, DefaultCurrentExpansionDB.usableOnly and L.YES or L.NO))
 	else
 		Print(L.MSG_UNKNOWN_CMD)
 	end
