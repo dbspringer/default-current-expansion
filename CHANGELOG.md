@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-04-21
+
+### Changed
+- Interface bumped to 120005 for WoW 12.0.5 compatibility
+
 ## [1.5.0] - 2026-04-04
 
 ### Added
