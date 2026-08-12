@@ -85,6 +85,33 @@ local function ReleaseAuctionHouseFilter(filterEnum)
 	end
 end
 
+-- Once the player touches a filter it is theirs, so we stop claiming it. Without this,
+-- ownership recorded on an earlier visit outlives the state it described and a later
+-- toggle-off would clear a filter the player had turned on by hand.
+--
+-- The hooks go on the button instance rather than AuctionHouseFilterButtonMixin: the XML
+-- `mixin` attribute copies the mixin's functions onto the frame when it is created, so
+-- hooking the table afterwards would never reach this frame. Observation only.
+local function HookFilterOwnershipRelease(searchBar)
+	local filterButton = searchBar.FilterButton
+	if not filterButton or filterButton.DCE_ownershipHooked then return end
+
+	if filterButton.ToggleFilter then
+		hooksecurefunc(filterButton, "ToggleFilter", function(_, filter)
+			DefaultCurrentExpansionCharDB.owned[filter] = nil
+		end)
+	end
+
+	-- Reset is the Clear Filters button, which clears every filter at once
+	if filterButton.Reset then
+		hooksecurefunc(filterButton, "Reset", function()
+			DefaultCurrentExpansionCharDB.owned = {}
+		end)
+	end
+
+	filterButton.DCE_ownershipHooked = true
+end
+
 -- Reaching the Buy tab is what we care about, not every tab switch. Applying once per AH
 -- visit leaves a manual untick alone for the rest of that visit, which the game now keeps.
 local appliedThisVisit = false
@@ -97,6 +124,8 @@ local function ApplyAuctionHouseFilter()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
 			if searchBar and searchBar:IsShown() then
+				HookFilterOwnershipRelease(searchBar)
+
 				local filters = GetAuctionHouseFilters()
 
 				if filters then
