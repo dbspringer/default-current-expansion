@@ -64,15 +64,23 @@ local function ReleaseAuctionHouseFilter(filterEnum)
 	end
 end
 
+-- Reaching the Buy tab is what we care about, not every tab switch. Applying once per AH
+-- visit leaves a manual untick alone for the rest of that visit, which the game now keeps.
+local appliedThisVisit = false
+
 -- Frames need 0.1s after AUCTION_HOUSE_SHOW to fully initialize
 local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
+		if appliedThisVisit then return end
+
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
 			if searchBar and searchBar:IsShown() then
 				local filters = GetAuctionHouseFilters()
 
 				if filters then
+					appliedThisVisit = true
+
 					for filterEnum in pairs(DefaultCurrentExpansionDB.pendingRelease) do
 						filters[filterEnum] = false
 						DefaultCurrentExpansionDB.pendingRelease[filterEnum] = nil
@@ -91,8 +99,23 @@ local function ApplyAuctionHouseFilter()
 end
 
 -- Auction House event handler
--- Tab switches need no handling: since 12.1.0 the game keeps filter state across them
+-- Hooks SetDisplayMode so the filter still applies when another addon (e.g. Auctionator)
+-- opens the AH on its own tab. The Buy search bar is hidden at AUCTION_HOUSE_SHOW in that
+-- case, so without this the filter is never written at all and 12.1.0's persistence has
+-- nothing to preserve. Re-applying on tab switch is no longer needed; reaching Buy is.
 local function OnAuctionHouseShow()
+	appliedThisVisit = false
+
+	if AuctionHouseFrame and not AuctionHouseFrame.DCE_displayModeHooked then
+		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
+			-- Auctionator calls SetDisplayMode({}) for its own tabs; skip those
+			if displayMode and next(displayMode) ~= nil then
+				ApplyAuctionHouseFilter()
+			end
+		end)
+		AuctionHouseFrame.DCE_displayModeHooked = true
+	end
+
 	ApplyAuctionHouseFilter()
 end
 
