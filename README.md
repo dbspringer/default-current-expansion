@@ -7,7 +7,7 @@ A World of Warcraft addon that automatically applies filters in the Auction Hous
 - Automatically applies "Current Expansion Only" filter when opening the Auction House and when browsing Crafting Orders
 - Optionally applies "Usable Only" filter for the Auction House and Crafting Orders
 - Each filter has independent per-surface (AH/CO) toggles
-- Compatible with retail WoW 12.0.5 (Midnight)
+- Compatible with retail WoW 12.1.0 (Midnight)
 
 ## Installation
 
@@ -59,7 +59,7 @@ After installation, simply:
 
 ## Compatibility
 
-- **Current Version:** Retail WoW 12.0.5 (Midnight)
+- **Current Version:** Retail WoW 12.1.0 (Midnight)
 - **Not compatible with:** Classic WoW, Classic Era, or Cataclysm Classic
 
 ## Contributing
