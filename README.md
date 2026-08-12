@@ -29,7 +29,6 @@ Access the options panel via:
 - Slash command: `/dce opt`
 
 The options panel allows you to toggle:
-- **Preserve filter changes** - Remember manual filter changes within an AH session
 - **Current Expansion Only** - Enable/disable per surface (Auction House, Crafting Orders)
 - **Usable Items Only** - Enable/disable per surface (Auction House, Crafting Orders)
 
@@ -40,7 +39,6 @@ The options panel allows you to toggle:
 - `/dce ah` - Toggle Current Expansion Only (Auction House)
 - `/dce co` - Toggle Current Expansion Only (Crafting Orders)
 - `/dce usable` - Toggle Usable Items Only (both surfaces)
-- `/dce preserve` - Toggle preserve filter changes
 - `/dce status` - Show current settings
 
 ### First Time Setup

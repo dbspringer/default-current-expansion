@@ -9,7 +9,6 @@ local L = DCE_L
 local defaults = {
 	auctionHouse = true,
 	craftingOrders = true,
-	preserveFilterChanges = true,
 	usableOnlyAH = false,
 	usableOnlyCO = false,
 }
@@ -30,6 +29,7 @@ function addon:InitDB()
 	-- Clean up removed keys from existing saved variables
 	DefaultCurrentExpansionDB.debug = nil
 	DefaultCurrentExpansionDB.usableOnly = nil
+	DefaultCurrentExpansionDB.preserveFilterChanges = nil
 end
 
 local function Print(...)
@@ -46,81 +46,29 @@ local function GetAuctionHouseFilters()
 	return g_auctionHouseFilters and g_auctionHouseFilters.filters
 end
 
--- User's manual filter overrides for this AH session, keyed by filter enum (absent key = use addon setting)
-local userFilterOverride = {}
--- What was last applied per filter, so the watcher can detect user changes
-local lastAppliedFilterState = {}
-local filterWatcher = nil
-
-local function CancelFilterWatcher()
-	if filterWatcher then
-		filterWatcher:Cancel()
-		filterWatcher = nil
-	end
-end
-
--- Polls while Buy tab is shown to detect manual filter changes
-local function StartFilterWatcher()
-	CancelFilterWatcher()
-	if not DefaultCurrentExpansionDB.preserveFilterChanges then return end
-
-	-- Built once per watcher start; settings can't change while AH is open
-	local watchedFilters = {}
-	if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
-		watchedFilters[#watchedFilters + 1] = FILTER_CEO
-	end
-	if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
-		watchedFilters[#watchedFilters + 1] = FILTER_USABLE
-	end
-
-	filterWatcher = C_Timer.NewTicker(0.2, function()
-		if not AuctionHouseFrame or not AuctionHouseFrame:IsShown() then
-			CancelFilterWatcher()
-			return
-		end
-		local searchBar = AuctionHouseFrame.SearchBar
-		if not searchBar or not searchBar:IsShown() then return end
-		local filters = GetAuctionHouseFilters()
-		if not filters then return end
-
-		for _, filter in ipairs(watchedFilters) do
-			local currentState = filters[filter] and true or false
-			if lastAppliedFilterState[filter] ~= nil and currentState ~= lastAppliedFilterState[filter] then
-				userFilterOverride[filter] = currentState
-			end
-			lastAppliedFilterState[filter] = currentState
-		end
-	end)
-end
-
-local function ApplyOneFilter(filters, filterEnum)
-	local desired
-	if DefaultCurrentExpansionDB.preserveFilterChanges and userFilterOverride[filterEnum] ~= nil then
-		desired = userFilterOverride[filterEnum]
-	else
-		desired = true
-	end
-	filters[filterEnum] = desired
-	lastAppliedFilterState[filterEnum] = desired
-end
+-- Reaching the Buy tab is what we care about, not every tab switch. Applying once per AH
+-- visit leaves a manual untick alone for the rest of that visit, which the game now keeps.
+local appliedThisVisit = false
 
 -- Frames need 0.1s after AUCTION_HOUSE_SHOW to fully initialize
 local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
+		if appliedThisVisit then return end
+
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
 			if searchBar and searchBar:IsShown() then
 				local filters = GetAuctionHouseFilters()
 
 				if filters then
+					appliedThisVisit = true
+
 					if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
-						ApplyOneFilter(filters, FILTER_CEO)
+						filters[FILTER_CEO] = true
 					end
 					if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
-						ApplyOneFilter(filters, FILTER_USABLE)
+						filters[FILTER_USABLE] = true
 					end
-
-					StartFilterWatcher()
 				end
 			end
 		end
@@ -128,15 +76,17 @@ local function ApplyAuctionHouseFilter()
 end
 
 -- Auction House event handler
--- Hooks SetDisplayMode to catch tab switches (e.g. returning from Auctionator's Shopping tab)
+-- Hooks SetDisplayMode so the filter still applies when another addon (e.g. Auctionator)
+-- opens the AH on its own tab. The Buy search bar is hidden at AUCTION_HOUSE_SHOW in that
+-- case, so without this the filter is never written at all and 12.1.0's persistence has
+-- nothing to preserve. Re-applying on tab switch is no longer needed; reaching Buy is.
 local function OnAuctionHouseShow()
-	userFilterOverride = {}
-	lastAppliedFilterState = {}
-	CancelFilterWatcher()
+	appliedThisVisit = false
+
 	if AuctionHouseFrame and not AuctionHouseFrame.DCE_displayModeHooked then
 		hooksecurefunc(AuctionHouseFrame, "SetDisplayMode", function(_, displayMode)
+			-- Auctionator calls SetDisplayMode({}) for its own tabs; skip those
 			if displayMode and next(displayMode) ~= nil then
-				CancelFilterWatcher()
 				ApplyAuctionHouseFilter()
 			end
 		end)
@@ -146,7 +96,8 @@ local function OnAuctionHouseShow()
 	ApplyAuctionHouseFilter()
 end
 
--- CO has no filter watcher — preserveFilterChanges only applies to the AH
+-- Unlike the AH, CO still resets its filters to defaults every time it opens, so this
+-- runs on every visit rather than once
 local function OnCraftingOrdersShow()
 	C_Timer.After(0.1, function()
 		if ProfessionsCustomerOrdersFrame and ProfessionsCustomerOrdersFrame:IsShown() then
@@ -202,19 +153,9 @@ function addon:CreateOptionsPanel()
 	subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
 	subtitle:SetText(L.ADDON_SUBTITLE)
 
-	-- Preserve Filter Changes checkbox (top-level setting)
-	local preserveCheckbox = CreateFrame("CheckButton", "DCE_PreserveCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
-	preserveCheckbox:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
-	preserveCheckbox.Text:SetText(L.OPT_PRESERVE_FILTER)
-	preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
-	preserveCheckbox:SetScript("OnClick", function(self)
-		DefaultCurrentExpansionDB.preserveFilterChanges = self:GetChecked()
-		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
-	end)
-
 	-- Current Expansion Only section
 	local ceoHeader = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	ceoHeader:SetPoint("TOPLEFT", preserveCheckbox, "BOTTOMLEFT", 0, -16)
+	ceoHeader:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
 	ceoHeader:SetText(L.OPT_SECTION_CEO)
 
 	local ceoAHCheckbox = CreateFrame("CheckButton", "DCE_CEOAHCheckbox", panel, "InterfaceOptionsCheckButtonTemplate")
@@ -266,7 +207,6 @@ function addon:CreateOptionsPanel()
 
 	-- Refresh checkbox states when panel is shown
 	panel:SetScript("OnShow", function()
-		preserveCheckbox:SetChecked(DefaultCurrentExpansionDB.preserveFilterChanges)
 		ceoAHCheckbox:SetChecked(DefaultCurrentExpansionDB.auctionHouse)
 		ceoCOCheckbox:SetChecked(DefaultCurrentExpansionDB.craftingOrders)
 		usableAHCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyAH)
@@ -300,7 +240,6 @@ local function SlashCommandHandler(msg)
 		Print(L.HELP_OPT)
 		Print(L.HELP_AH)
 		Print(L.HELP_CO)
-		Print(L.HELP_PRESERVE)
 		Print(L.HELP_USABLE)
 		Print(L.HELP_STATUS)
 	elseif command == "ah" then
@@ -315,9 +254,6 @@ local function SlashCommandHandler(msg)
 		if DefaultCurrentExpansionDB.craftingOrders then
 			addon:SetupCraftingOrders()
 		end
-	elseif command == "preserve" then
-		DefaultCurrentExpansionDB.preserveFilterChanges = not DefaultCurrentExpansionDB.preserveFilterChanges
-		Print(string.format(L.MSG_PRESERVE_TOGGLE, DefaultCurrentExpansionDB.preserveFilterChanges and L.ENABLED or L.DISABLED))
 	elseif command == "usable" then
 		-- If either surface is on, turn both off; otherwise turn both on
 		local newState = not (DefaultCurrentExpansionDB.usableOnlyAH or DefaultCurrentExpansionDB.usableOnlyCO)
@@ -326,7 +262,6 @@ local function SlashCommandHandler(msg)
 		Print(string.format(L.MSG_USABLE_TOGGLE, newState and L.ENABLED or L.DISABLED))
 	elseif command == "status" then
 		Print(L.STATUS_HEADER)
-		Print(string.format(L.STATUS_PRESERVE, DefaultCurrentExpansionDB.preserveFilterChanges and L.YES or L.NO))
 		Print(string.format(L.STATUS_CEO_AH, DefaultCurrentExpansionDB.auctionHouse and L.YES or L.NO))
 		Print(string.format(L.STATUS_CEO_CO, DefaultCurrentExpansionDB.craftingOrders and L.YES or L.NO))
 		Print(string.format(L.STATUS_USABLE_AH, DefaultCurrentExpansionDB.usableOnlyAH and L.YES or L.NO))

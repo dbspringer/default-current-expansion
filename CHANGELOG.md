@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Interface bumped to 120100 for WoW 12.1.0 compatibility
 
+### Removed
+- "Preserve filter changes" option and the `/dce preserve` command. WoW 12.1.0 keeps Auction House filter state across tab switches on its own, which is all this ever did. Manual filter changes now always stick for the rest of an Auction House visit; if you had this option turned *off*, the filter no longer snaps back when you return to the Buy tab
+
+### Note
+- WoW 12.1.0 remembers Auction House filters per character between sessions. That is a game change rather than an addon one
+- The addon ticks the filter for you; it never unticks it. Turning off an Auction House option stops it being applied on future visits, but leaves the box as it is. Untick it once from the Auction House filter dropdown and the game will remember
+
 ## [1.6.1] - 2026-06-28
 
 ### Changed
