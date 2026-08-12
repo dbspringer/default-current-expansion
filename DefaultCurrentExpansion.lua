@@ -40,6 +40,12 @@ end
 local FILTER_CEO = Enum.AuctionHouseFilter and Enum.AuctionHouseFilter.CurrentExpansionOnly
 local FILTER_USABLE = Enum.AuctionHouseFilter and Enum.AuctionHouseFilter.UsableOnly
 
+-- 12.1.0 moved AH filter state out of the FilterButton and into this saved variable.
+-- Clear Filters replaces the whole table, so resolve it on every use — never cache.
+local function GetAuctionHouseFilters()
+	return g_auctionHouseFilters and g_auctionHouseFilters.filters
+end
+
 -- User's manual filter overrides for this AH session, keyed by filter enum (absent key = use addon setting)
 local userFilterOverride = {}
 -- What was last applied per filter, so the watcher can detect user changes
@@ -74,11 +80,11 @@ local function StartFilterWatcher()
 		end
 		local searchBar = AuctionHouseFrame.SearchBar
 		if not searchBar or not searchBar:IsShown() then return end
-		local filterButton = searchBar.FilterButton
-		if not filterButton or not filterButton.filters then return end
+		local filters = GetAuctionHouseFilters()
+		if not filters then return end
 
 		for _, filter in ipairs(watchedFilters) do
-			local currentState = filterButton.filters[filter] and true or false
+			local currentState = filters[filter] and true or false
 			if lastAppliedFilterState[filter] ~= nil and currentState ~= lastAppliedFilterState[filter] then
 				userFilterOverride[filter] = currentState
 			end
@@ -103,15 +109,15 @@ local function ApplyAuctionHouseFilter()
 	C_Timer.After(0.1, function()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
-			if searchBar and searchBar:IsShown() and searchBar.FilterButton then
-				local filterButton = searchBar.FilterButton
+			if searchBar and searchBar:IsShown() then
+				local filters = GetAuctionHouseFilters()
 
-				if filterButton.filters then
+				if filters then
 					if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
-						ApplyOneFilter(filterButton.filters, FILTER_CEO)
+						ApplyOneFilter(filters, FILTER_CEO)
 					end
 					if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
-						ApplyOneFilter(filterButton.filters, FILTER_USABLE)
+						ApplyOneFilter(filters, FILTER_USABLE)
 					end
 
 					StartFilterWatcher()
