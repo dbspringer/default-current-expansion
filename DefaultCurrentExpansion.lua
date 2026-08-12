@@ -63,8 +63,13 @@ local function SyncAuctionHouseFilter(filters, filterEnum, wanted)
 
 	local owned = DefaultCurrentExpansionCharDB.owned
 	if wanted then
+		-- Claim it only if we are the ones switching it on. A filter that is already true
+		-- belongs to the player, and claiming it would let a later toggle-off delete their
+		-- choice. An existing claim survives, since this branch never clears one.
+		if not filters[filterEnum] then
+			owned[filterEnum] = true
+		end
 		filters[filterEnum] = true
-		owned[filterEnum] = true
 	elseif owned[filterEnum] then
 		filters[filterEnum] = false
 		owned[filterEnum] = nil

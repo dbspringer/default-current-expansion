@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Note
 - WoW 12.1.0 remembers Auction House filters per character between sessions. That is a game change rather than an addon one
+- The addon only clears filters it turned on itself, so one you ticked by hand is left alone. Filters left on by an earlier version predate that tracking and are treated as yours: if you disable an Auction House option and the filter stays on, untick it once and it will behave normally from then on
 
 ## [1.6.1] - 2026-06-28
 
