@@ -26,19 +26,10 @@ function addon:InitDB()
 		end
 	end
 
-	-- Which AH filters this addon set for THIS character. Blizzard's g_auctionHouseFilters is
-	-- per-character, so ownership has to be too: the account-wide settings above say what the
-	-- player wants, this says what we actually did here.
-	if not DefaultCurrentExpansionCharDB then
-		DefaultCurrentExpansionCharDB = {}
-	end
-	DefaultCurrentExpansionCharDB.owned = DefaultCurrentExpansionCharDB.owned or {}
-
 	-- Clean up removed keys from existing saved variables
 	DefaultCurrentExpansionDB.debug = nil
 	DefaultCurrentExpansionDB.usableOnly = nil
 	DefaultCurrentExpansionDB.preserveFilterChanges = nil
-	DefaultCurrentExpansionDB.pendingRelease = nil
 end
 
 local function Print(...)
@@ -55,63 +46,6 @@ local function GetAuctionHouseFilters()
 	return g_auctionHouseFilters and g_auctionHouseFilters.filters
 end
 
--- Brings one filter in line with its setting, tracking what we set on this character.
--- 12.1.0 persists AH filters, so a filter we turned on stays on after its option is turned
--- off; we hand it back. A filter the player ticked themselves is never ours to clear.
-local function SyncAuctionHouseFilter(filters, filterEnum, wanted)
-	if not filterEnum then return end
-
-	local owned = DefaultCurrentExpansionCharDB.owned
-	if wanted then
-		-- Claim it only if we are the ones switching it on. A filter that is already true
-		-- belongs to the player, and claiming it would let a later toggle-off delete their
-		-- choice. An existing claim survives, since this branch never clears one.
-		if not filters[filterEnum] then
-			owned[filterEnum] = true
-		end
-		filters[filterEnum] = true
-	elseif owned[filterEnum] then
-		filters[filterEnum] = false
-		owned[filterEnum] = nil
-	end
-end
-
--- Called when an AH option is turned off. If the AH UI hasn't loaded yet (it is
--- LoadOnDemand) ownership stays recorded and the next AH open syncs it instead.
-local function ReleaseAuctionHouseFilter(filterEnum)
-	local filters = GetAuctionHouseFilters()
-	if filters then
-		SyncAuctionHouseFilter(filters, filterEnum, false)
-	end
-end
-
--- Once the player touches a filter it is theirs, so we stop claiming it. Without this,
--- ownership recorded on an earlier visit outlives the state it described and a later
--- toggle-off would clear a filter the player had turned on by hand.
---
--- The hooks go on the button instance rather than AuctionHouseFilterButtonMixin: the XML
--- `mixin` attribute copies the mixin's functions onto the frame when it is created, so
--- hooking the table afterwards would never reach this frame. Observation only.
-local function HookFilterOwnershipRelease(searchBar)
-	local filterButton = searchBar.FilterButton
-	if not filterButton or filterButton.DCE_ownershipHooked then return end
-
-	if filterButton.ToggleFilter then
-		hooksecurefunc(filterButton, "ToggleFilter", function(_, filter)
-			DefaultCurrentExpansionCharDB.owned[filter] = nil
-		end)
-	end
-
-	-- Reset is the Clear Filters button, which clears every filter at once
-	if filterButton.Reset then
-		hooksecurefunc(filterButton, "Reset", function()
-			DefaultCurrentExpansionCharDB.owned = {}
-		end)
-	end
-
-	filterButton.DCE_ownershipHooked = true
-end
-
 -- Reaching the Buy tab is what we care about, not every tab switch. Applying once per AH
 -- visit leaves a manual untick alone for the rest of that visit, which the game now keeps.
 local appliedThisVisit = false
@@ -124,15 +58,17 @@ local function ApplyAuctionHouseFilter()
 		if AuctionHouseFrame and AuctionHouseFrame:IsShown() then
 			local searchBar = AuctionHouseFrame.SearchBar
 			if searchBar and searchBar:IsShown() then
-				HookFilterOwnershipRelease(searchBar)
-
 				local filters = GetAuctionHouseFilters()
 
 				if filters then
 					appliedThisVisit = true
 
-					SyncAuctionHouseFilter(filters, FILTER_CEO, DefaultCurrentExpansionDB.auctionHouse)
-					SyncAuctionHouseFilter(filters, FILTER_USABLE, DefaultCurrentExpansionDB.usableOnlyAH)
+					if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
+						filters[FILTER_CEO] = true
+					end
+					if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
+						filters[FILTER_USABLE] = true
+					end
 				end
 			end
 		end
@@ -160,7 +96,8 @@ local function OnAuctionHouseShow()
 	ApplyAuctionHouseFilter()
 end
 
--- CO needs no release: unlike the AH, it still resets its filters to defaults on open
+-- Unlike the AH, CO still resets its filters to defaults every time it opens, so this
+-- runs on every visit rather than once
 local function OnCraftingOrdersShow()
 	C_Timer.After(0.1, function()
 		if ProfessionsCustomerOrdersFrame and ProfessionsCustomerOrdersFrame:IsShown() then
@@ -230,9 +167,6 @@ function addon:CreateOptionsPanel()
 		if not addon.ahFrame then
 			addon:SetupAuctionHouse()
 		end
-		if not DefaultCurrentExpansionDB.auctionHouse then
-			ReleaseAuctionHouseFilter(FILTER_CEO)
-		end
 		Print(string.format(L.MSG_AH_TOGGLE, DefaultCurrentExpansionDB.auctionHouse and L.ENABLED or L.DISABLED))
 	end)
 
@@ -259,9 +193,6 @@ function addon:CreateOptionsPanel()
 	usableAHCheckbox:SetChecked(DefaultCurrentExpansionDB.usableOnlyAH)
 	usableAHCheckbox:SetScript("OnClick", function(self)
 		DefaultCurrentExpansionDB.usableOnlyAH = self:GetChecked()
-		if not DefaultCurrentExpansionDB.usableOnlyAH then
-			ReleaseAuctionHouseFilter(FILTER_USABLE)
-		end
 		Print(string.format(L.MSG_USABLE_AH_TOGGLE, DefaultCurrentExpansionDB.usableOnlyAH and L.ENABLED or L.DISABLED))
 	end)
 
@@ -316,8 +247,6 @@ local function SlashCommandHandler(msg)
 		Print(string.format(L.MSG_AH_TOGGLE, DefaultCurrentExpansionDB.auctionHouse and L.ENABLED or L.DISABLED))
 		if DefaultCurrentExpansionDB.auctionHouse then
 			addon:SetupAuctionHouse()
-		else
-			ReleaseAuctionHouseFilter(FILTER_CEO)
 		end
 	elseif command == "co" then
 		DefaultCurrentExpansionDB.craftingOrders = not DefaultCurrentExpansionDB.craftingOrders
@@ -330,9 +259,6 @@ local function SlashCommandHandler(msg)
 		local newState = not (DefaultCurrentExpansionDB.usableOnlyAH or DefaultCurrentExpansionDB.usableOnlyCO)
 		DefaultCurrentExpansionDB.usableOnlyAH = newState
 		DefaultCurrentExpansionDB.usableOnlyCO = newState
-		if not newState then
-			ReleaseAuctionHouseFilter(FILTER_USABLE)
-		end
 		Print(string.format(L.MSG_USABLE_TOGGLE, newState and L.ENABLED or L.DISABLED))
 	elseif command == "status" then
 		Print(L.STATUS_HEADER)

@@ -21,26 +21,22 @@ Global `DCE_L` table created in `Locales/enUS.lua` with all English strings. Non
 **Auction House** (`AUCTION_HOUSE_SHOW`):
 - Installs `hooksecurefunc` on `AuctionHouseFrame.SetDisplayMode` (once) so the Buy tab is caught even when the AH opens elsewhere — see the note below
 - Calls `ApplyAuctionHouseFilter()` → 0.1s delay → returns early if `appliedThisVisit`, then checks `searchBar:IsShown()` (Buy tab only)
-- Calls `SyncAuctionHouseFilter()` for `FILTER_CEO` (against `auctionHouse`) and `FILTER_USABLE` (against `usableOnlyAH`), writing into `g_auctionHouseFilters.filters[filterEnum]`. Clear Filters replaces that table wholesale, so it is re-resolved on every use via `GetAuctionHouseFilters()` and never cached
+- Writes `true` into `g_auctionHouseFilters.filters[filterEnum]` for each enabled filter (`FILTER_CEO` if `auctionHouse` is on, `FILTER_USABLE` if `usableOnlyAH` is on). Clear Filters replaces that table wholesale, so it is re-resolved on every use via `GetAuctionHouseFilters()` and never cached
 - Note: `UpdateClearFiltersButton()` was intentionally removed to prevent taint propagation (see issue #10)
 
 **Why the `SetDisplayMode` hook stays** — it does two unrelated jobs, and only one became obsolete in 12.1.0. Re-applying the filter after a tab switch is no longer needed, because `AuctionHouseSearchBarMixin:OnShow` now only resets the search text and the game keeps filter state across tabs by itself. But *reaching* the Buy tab still matters: when another addon (e.g. Auctionator) opens the AH on its own tab, `SearchBar` is hidden at `AUCTION_HOUSE_SHOW`, `ApplyAuctionHouseFilter()` bails, and nothing else would ever retry. Persistence only preserves a write that already happened, so dropping the hook silently reintroduces the bug fixed in 1.3.0. The hook observes only (`hooksecurefunc`, no behavior altered) and skips Auctionator's empty-table `SetDisplayMode({})` calls via `next(displayMode) ~= nil`. `AuctionHouseFrame.DCE_displayModeHooked` keeps it from stacking across `/reload`.
 
 The apply is gated to **once per AH visit** by the `appliedThisVisit` upvalue, reset in `OnAuctionHouseShow`. Reaching Buy is what matters; re-applying on every later tab switch would undo a manual untick that the game would otherwise have kept. That gate is also what replaces `preserveFilterChanges`, which had no second job and was removed: `userFilterOverride` was cleared on every AH open, so it only ever protected tab switches within a single visit. A side effect worth knowing: clicking Clear Filters mid-visit leaves the filters cleared until the next AH open, which matches what the player just asked for.
 
-**Releasing AH filters** — because nothing resets these filters anymore, a filter the addon set stays set after its option is turned off. `SyncAuctionHouseFilter(filters, filterEnum, wanted)` handles both directions: when `wanted` it writes `true` and records the filter in `DefaultCurrentExpansionCharDB.owned`; otherwise it writes `false` and clears the record, **but only if we own it**. A filter the player ticked by hand is never ours to clear.
+**The addon sets the box; it never unsets it.** This is the design decision most likely to look like a bug, so it is worth stating plainly.
 
-Stated precisely, the invariant is: **we own a filter only if we turned it on and the player has not touched it since.** Both halves need code, and both are easy to get wrong.
+The options are named for automation: "Current Expansion Only (Auction House)" means *automatically tick this filter when the AH opens*. Turning it off means we stop ticking it. It does not mean we untick it. Before 12.1.0 the difference was invisible, because Blizzard reset the filters on every open, so "we stopped setting it" and "it ended up off" were the same outcome. 12.1.0 made filters persist, which pulled those apart.
 
-*Acquisition* — claim only when the call actually flips the filter from off to on. Recording ownership on every apply looks equivalent and is not: a player who had the filter ticked before installing would have it claimed on the first AH visit and deleted on the next toggle-off.
+An earlier revision of this work did release filters on toggle-off, and every problem it caused came from needing to know whether the addon or the player had set a given filter — a distinction the player cannot see and never asked us to track. It cost a per-character saved variable, an ownership acquisition rule, and hooks on `ToggleFilter` and `Reset`, and still had gaps. The clinching argument is that uninstalling is how most people stop using an addon, and no release logic can run then, so the machinery only ever covered disable-but-keep-installed.
 
-*Relinquishment* — `HookFilterOwnershipRelease` hooks the FilterButton's `ToggleFilter` and `Reset` so that any change made through the UI hands the filter back. Without it, ownership recorded on one visit outlives the state it described: untick and re-tick by hand, or clear filters and re-tick, then disable the option, and the addon would clear a filter the player had turned on. Note these hooks go on the button *instance*, since the XML `mixin` attribute copies `AuctionHouseFilterButtonMixin`'s functions onto the frame at creation and hooking the mixin table afterwards would never reach it.
+What happens instead: disable an option and the box stays as it is. The player unticks it once from the AH's own filter dropdown, which the game then remembers. That is the same single click any other filter takes, and the affordance is native and visible.
 
-The conservative acquisition rule has one consequence worth remembering: filters left on by a version that predates this tracking are treated as the player's, so disabling an option will not release them until the player unticks once. That is the safer direction to be wrong in, and it self-corrects.
-
-Ownership lives in `SavedVariablesPerCharacter` because Blizzard's `g_auctionHouseFilters` does too. The account-wide settings say what the player wants; the per-character table says what the addon actually did *here*. That split is load-bearing: with ownership stored account-wide, disabling an option on one character would clear an alt's hand-picked filter while leaving the character the addon had actually filtered untouched.
-
-Turning an option off calls `ReleaseAuctionHouseFilter()` for an immediate sync. If Blizzard_AuctionHouseUI has not loaded yet (it is `LoadOnDemand`, so `g_auctionHouseFilters` is nil until the first AH visit) nothing is lost: the ownership record persists and the next AH open syncs it. Every character releases its own filter on its own next visit.
+The one rule that follows: **never write `false` into `g_auctionHouseFilters.filters`.** If a future change needs to, it needs ownership tracking again, and the history above is why that is more expensive than it looks.
 
 **Crafting Orders** (`CRAFTINGORDERS_SHOW_CUSTOMER`):
 - 0.1s delay → for each enabled filter (`FILTER_CEO` if `craftingOrders` is on, `FILTER_USABLE` if `usableOnlyCO` is on), writes `true` into the corresponding slot in `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters`
@@ -50,12 +46,9 @@ The 0.1s delay exists because Blizzard frames are not fully initialized on the e
 
 ### Saved Variables
 
-Two tables, and the split matters:
+`DefaultCurrentExpansionDB` (`## SavedVariables`, account-wide) — see the `defaults` table at the top of `DefaultCurrentExpansion.lua` for keys and default values.
 
-- `DefaultCurrentExpansionDB` (`## SavedVariables`, account-wide) — the player's preferences. See the `defaults` table at the top of `DefaultCurrentExpansion.lua` for keys and default values.
-- `DefaultCurrentExpansionCharDB` (`## SavedVariablesPerCharacter`) — `owned[filterEnum]`, recording which AH filters this addon set on this character. Initialised in `InitDB`, not through `defaults`, since the merge loop only handles the account-wide table.
-
-Preferences are account-wide because that is what a player expects from a settings panel. Ownership must be per-character because the state it tracks, Blizzard's `g_auctionHouseFilters`, is itself `SavedVariablesPerCharacter`. Do not move ownership into the account-wide table; see the release note above for what breaks.
+The AH filters themselves live in Blizzard's `g_auctionHouseFilters`, which is `SavedVariablesPerCharacter`. The addon reads and writes that table but stores nothing of its own per character, because it never needs to remember what it did — see the note above on why it only ever sets the box.
 
 ### Options Panel
 
@@ -99,8 +92,7 @@ These paths are most likely to break on WoW patches (failures are silent — no 
 4. **UI update calls**: `UpdateClearFiltersButton()` and `ValidateResetState()` were removed to prevent taint propagation — calling Blizzard frame methods from addon code taints the frame hierarchy (see issue #10). Do not re-add them.
    - Since 12.1.0 the AH filters table is no longer reset on every AH open (`SearchBar:OnShow` used to call `FilterButton:Reset()`, which allocated a fresh untainted table each time). The addon's taint on `g_auctionHouseFilters.filters` now survives the whole session, until the user clicks Clear Filters. Unavoidable — writing that table is the addon's purpose — but it makes #10-style `ADDON_ACTION_FORBIDDEN` reports more likely. Watch for them.
 5. **SetDisplayMode hook**: if Blizzard renames or removes this method the hook silently stops, and the filter is then never applied at all for AH visits that start on a non-Buy tab (Auctionator and similar). Do not remove it on the grounds that 12.1.0 persists filters across tabs — that reasoning covers only half of what it does; see the Runtime Flow note above
-6. **FilterButton ownership hooks**: `ToggleFilter` and `Reset` on `AuctionHouseFrame.SearchBar.FilterButton`. If either is renamed the hook silently stops and ownership goes stale, at which point disabling an option can clear a filter the player set by hand. Both are nil-guarded, so a rename degrades rather than errors
-7. **Filter persistence**: the AH now keeps filters across tab switches and sessions, while CO still resets to `AUCTION_HOUSE_DEFAULT_FILTERS` on open. If Blizzard ever gives CO the same treatment, `OnCraftingOrdersShow` will need its own release path like the AH has
+6. **Filter persistence**: the AH now keeps filters across tab switches and sessions, while CO still resets to `AUCTION_HOUSE_DEFAULT_FILTERS` on open — which is why CO applies on every visit and the AH applies once. If Blizzard ever gives CO the same treatment, `OnCraftingOrdersShow` should gain a once-per-visit gate like the AH has, not a release path
 
 ## Release Process
 

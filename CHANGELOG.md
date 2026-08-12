@@ -6,7 +6,6 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Auction House filters stopped applying on WoW 12.1.0; Blizzard moved filter state from `AuctionHouseFrame.SearchBar.FilterButton.filters` into the `g_auctionHouseFilters` saved variable
-- Auction House filters stayed applied after their option was turned off, so the option read as disabled while filtering continued; they are now released explicitly
 
 ### Changed
 - Interface bumped to 120100 for WoW 12.1.0 compatibility
@@ -16,7 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Note
 - WoW 12.1.0 remembers Auction House filters per character between sessions. That is a game change rather than an addon one
-- The addon only clears filters it turned on itself, so one you ticked by hand is left alone. Filters left on by an earlier version predate that tracking and are treated as yours: if you disable an Auction House option and the filter stays on, untick it once and it will behave normally from then on
+- The addon ticks the filter for you; it never unticks it. Turning off an Auction House option stops it being applied on future visits, but leaves the box as it is. Untick it once from the Auction House filter dropdown and the game will remember
 
 ## [1.6.1] - 2026-06-28
 
