@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [1.7.0] - 2026-08-12
 
 ### Fixed
-- Auction House filters silently not applied on WoW 12.1.0 — Blizzard moved filter state from `AuctionHouseFrame.SearchBar.FilterButton.filters` into the `g_auctionHouseFilters` saved variable
+- Auction House filters stopped applying on WoW 12.1.0; Blizzard moved filter state from `AuctionHouseFrame.SearchBar.FilterButton.filters` into the `g_auctionHouseFilters` saved variable
 
 ### Changed
 - Interface bumped to 120100 for WoW 12.1.0 compatibility
