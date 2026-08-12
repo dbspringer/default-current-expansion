@@ -21,17 +21,18 @@ Global `DCE_L` table created in `Locales/enUS.lua` with all English strings. Non
 **Auction House** (`AUCTION_HOUSE_SHOW`):
 - Installs `hooksecurefunc` on `AuctionHouseFrame.SetDisplayMode` (once) so the Buy tab is caught even when the AH opens elsewhere — see the note below
 - Calls `ApplyAuctionHouseFilter()` → 0.1s delay → returns early if `appliedThisVisit`, then checks `searchBar:IsShown()` (Buy tab only)
-- Drains `DefaultCurrentExpansionDB.pendingRelease`, writing `false` for each queued filter
-- Writes `true` into `g_auctionHouseFilters.filters[filterEnum]` for each enabled filter (`FILTER_CEO` if `auctionHouse` is on, `FILTER_USABLE` if `usableOnlyAH` is on). Clear Filters replaces that table wholesale, so it is re-resolved on every use via `GetAuctionHouseFilters()` and never cached
+- Calls `SyncAuctionHouseFilter()` for `FILTER_CEO` (against `auctionHouse`) and `FILTER_USABLE` (against `usableOnlyAH`), writing into `g_auctionHouseFilters.filters[filterEnum]`. Clear Filters replaces that table wholesale, so it is re-resolved on every use via `GetAuctionHouseFilters()` and never cached
 - Note: `UpdateClearFiltersButton()` was intentionally removed to prevent taint propagation (see issue #10)
 
 **Why the `SetDisplayMode` hook stays** — it does two unrelated jobs, and only one became obsolete in 12.1.0. Re-applying the filter after a tab switch is no longer needed, because `AuctionHouseSearchBarMixin:OnShow` now only resets the search text and the game keeps filter state across tabs by itself. But *reaching* the Buy tab still matters: when another addon (e.g. Auctionator) opens the AH on its own tab, `SearchBar` is hidden at `AUCTION_HOUSE_SHOW`, `ApplyAuctionHouseFilter()` bails, and nothing else would ever retry. Persistence only preserves a write that already happened, so dropping the hook silently reintroduces the bug fixed in 1.3.0. The hook observes only (`hooksecurefunc`, no behavior altered) and skips Auctionator's empty-table `SetDisplayMode({})` calls via `next(displayMode) ~= nil`. `AuctionHouseFrame.DCE_displayModeHooked` keeps it from stacking across `/reload`.
 
 The apply is gated to **once per AH visit** by the `appliedThisVisit` upvalue, reset in `OnAuctionHouseShow`. Reaching Buy is what matters; re-applying on every later tab switch would undo a manual untick that the game would otherwise have kept. That gate is also what replaces `preserveFilterChanges`, which had no second job and was removed: `userFilterOverride` was cleared on every AH open, so it only ever protected tab switches within a single visit. A side effect worth knowing: clicking Clear Filters mid-visit leaves the filters cleared until the next AH open, which matches what the player just asked for.
 
-**Releasing AH filters** — because nothing resets these filters anymore, a filter the addon set stays set after its option is turned off. Turning off `auctionHouse` or `usableOnlyAH` (via the options panel or `/dce ah` / `/dce usable`) calls `ReleaseAuctionHouseFilter()`, which writes `false`. If Blizzard_AuctionHouseUI has not loaded yet (it is `LoadOnDemand`, so `g_auctionHouseFilters` is nil until the first AH visit), the filter is queued in `pendingRelease` and released on the next AH open instead.
+**Releasing AH filters** — because nothing resets these filters anymore, a filter the addon set stays set after its option is turned off. `SyncAuctionHouseFilter(filters, filterEnum, wanted)` handles both directions: when `wanted` it writes `true` and records the filter in `DefaultCurrentExpansionCharDB.owned`; otherwise it writes `false` and clears the record, **but only if we own it**. A filter the player ticked by hand is never ours to clear.
 
-Known limitation: `DefaultCurrentExpansionDB` is account-wide while `g_auctionHouseFilters` is per-character, so a queued release is consumed by whichever character opens the AH first. Other characters keep the old filter until they untick it or use Clear Filters.
+Ownership lives in `SavedVariablesPerCharacter` because Blizzard's `g_auctionHouseFilters` does too. The account-wide settings say what the player wants; the per-character table says what the addon actually did *here*. That split is load-bearing: with ownership stored account-wide, disabling an option on one character would clear an alt's hand-picked filter while leaving the character the addon had actually filtered untouched.
+
+Turning an option off calls `ReleaseAuctionHouseFilter()` for an immediate sync. If Blizzard_AuctionHouseUI has not loaded yet (it is `LoadOnDemand`, so `g_auctionHouseFilters` is nil until the first AH visit) nothing is lost: the ownership record persists and the next AH open syncs it. Every character releases its own filter on its own next visit.
 
 **Crafting Orders** (`CRAFTINGORDERS_SHOW_CUSTOMER`):
 - 0.1s delay → for each enabled filter (`FILTER_CEO` if `craftingOrders` is on, `FILTER_USABLE` if `usableOnlyCO` is on), writes `true` into the corresponding slot in `ProfessionsCustomerOrdersFrame.BrowseOrders.SearchBar.FilterDropdown.filters`
@@ -41,9 +42,12 @@ The 0.1s delay exists because Blizzard frames are not fully initialized on the e
 
 ### Saved Variables
 
-`DefaultCurrentExpansionDB` (account-wide) — see the `defaults` table at the top of `DefaultCurrentExpansion.lua` for keys and default values. `pendingRelease` is initialised separately in `InitDB` rather than through `defaults`, so the merge loop cannot alias one shared table into the saved variables.
+Two tables, and the split matters:
 
-Note the AH filters themselves live in Blizzard's `g_auctionHouseFilters`, which is `SavedVariablesPerCharacter`. Account-wide addon settings therefore drive per-character game state, which is where the `pendingRelease` limitation above comes from.
+- `DefaultCurrentExpansionDB` (`## SavedVariables`, account-wide) — the player's preferences. See the `defaults` table at the top of `DefaultCurrentExpansion.lua` for keys and default values.
+- `DefaultCurrentExpansionCharDB` (`## SavedVariablesPerCharacter`) — `owned[filterEnum]`, recording which AH filters this addon set on this character. Initialised in `InitDB`, not through `defaults`, since the merge loop only handles the account-wide table.
+
+Preferences are account-wide because that is what a player expects from a settings panel. Ownership must be per-character because the state it tracks, Blizzard's `g_auctionHouseFilters`, is itself `SavedVariablesPerCharacter`. Do not move ownership into the account-wide table; see the release note above for what breaks.
 
 ### Options Panel
 

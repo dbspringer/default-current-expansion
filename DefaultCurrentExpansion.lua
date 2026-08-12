@@ -26,14 +26,19 @@ function addon:InitDB()
 		end
 	end
 
-	-- Filters awaiting release because the AH UI wasn't loaded when their option was turned off.
-	-- Kept out of `defaults` so the merge above can't alias this table into the saved variables.
-	DefaultCurrentExpansionDB.pendingRelease = DefaultCurrentExpansionDB.pendingRelease or {}
+	-- Which AH filters this addon set for THIS character. Blizzard's g_auctionHouseFilters is
+	-- per-character, so ownership has to be too: the account-wide settings above say what the
+	-- player wants, this says what we actually did here.
+	if not DefaultCurrentExpansionCharDB then
+		DefaultCurrentExpansionCharDB = {}
+	end
+	DefaultCurrentExpansionCharDB.owned = DefaultCurrentExpansionCharDB.owned or {}
 
 	-- Clean up removed keys from existing saved variables
 	DefaultCurrentExpansionDB.debug = nil
 	DefaultCurrentExpansionDB.usableOnly = nil
 	DefaultCurrentExpansionDB.preserveFilterChanges = nil
+	DefaultCurrentExpansionDB.pendingRelease = nil
 end
 
 local function Print(...)
@@ -50,17 +55,28 @@ local function GetAuctionHouseFilters()
 	return g_auctionHouseFilters and g_auctionHouseFilters.filters
 end
 
--- 12.1.0 persists AH filters, so one we set stays set after its option is turned off.
--- Release it rather than leaving it stranded with the option reading as disabled.
-local function ReleaseAuctionHouseFilter(filterEnum)
+-- Brings one filter in line with its setting, tracking what we set on this character.
+-- 12.1.0 persists AH filters, so a filter we turned on stays on after its option is turned
+-- off; we hand it back. A filter the player ticked themselves is never ours to clear.
+local function SyncAuctionHouseFilter(filters, filterEnum, wanted)
 	if not filterEnum then return end
 
+	local owned = DefaultCurrentExpansionCharDB.owned
+	if wanted then
+		filters[filterEnum] = true
+		owned[filterEnum] = true
+	elseif owned[filterEnum] then
+		filters[filterEnum] = false
+		owned[filterEnum] = nil
+	end
+end
+
+-- Called when an AH option is turned off. If the AH UI hasn't loaded yet (it is
+-- LoadOnDemand) ownership stays recorded and the next AH open syncs it instead.
+local function ReleaseAuctionHouseFilter(filterEnum)
 	local filters = GetAuctionHouseFilters()
 	if filters then
-		filters[filterEnum] = false
-	else
-		-- AH UI is load-on-demand and hasn't loaded yet; release on next open instead
-		DefaultCurrentExpansionDB.pendingRelease[filterEnum] = true
+		SyncAuctionHouseFilter(filters, filterEnum, false)
 	end
 end
 
@@ -81,17 +97,8 @@ local function ApplyAuctionHouseFilter()
 				if filters then
 					appliedThisVisit = true
 
-					for filterEnum in pairs(DefaultCurrentExpansionDB.pendingRelease) do
-						filters[filterEnum] = false
-						DefaultCurrentExpansionDB.pendingRelease[filterEnum] = nil
-					end
-
-					if FILTER_CEO and DefaultCurrentExpansionDB.auctionHouse then
-						filters[FILTER_CEO] = true
-					end
-					if FILTER_USABLE and DefaultCurrentExpansionDB.usableOnlyAH then
-						filters[FILTER_USABLE] = true
-					end
+					SyncAuctionHouseFilter(filters, FILTER_CEO, DefaultCurrentExpansionDB.auctionHouse)
+					SyncAuctionHouseFilter(filters, FILTER_USABLE, DefaultCurrentExpansionDB.usableOnlyAH)
 				end
 			end
 		end
