@@ -57,7 +57,7 @@ Registered via `Settings.RegisterCanvasLayoutCategory` (modern Settings API). Us
 ## Constraints
 
 ### Target Version
-- **Retail only** (Interface 120100, Midnight era)
+- **Retail only** (Interface 120105, Midnight era)
 - Not compatible with Classic, Classic Era, or Cataclysm Classic
 - Lua 5.1 (WoW's embedded runtime)
 
