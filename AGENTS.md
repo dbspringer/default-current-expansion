@@ -57,7 +57,7 @@ Registered via `Settings.RegisterCanvasLayoutCategory` (modern Settings API). Us
 ## Constraints
 
 ### Target Version
-- **Retail only** (Interface 120100, Midnight era)
+- **Retail only** (Interface 120105, Midnight era)
 - Not compatible with Classic, Classic Era, or Cataclysm Classic
 - Lua 5.1 (WoW's embedded runtime)
 
@@ -98,9 +98,10 @@ These paths are most likely to break on WoW patches (failures are silent — no 
 
 1. Update version in `DefaultCurrentExpansion.toc` (`## Version:`)
 2. Update `CHANGELOG.md`
-3. Commit, tag with `v<version>` (e.g., `git tag v1.2.1`), and push
-4. Run `./export.sh ~/Desktop` to create `DefaultCurrentExpansion.<version>.zip`
-5. Upload manually to CurseForge (project ID 1409180)
+3. Commit, tag with `v<version>` (e.g., `git tag v1.2.1`), and push the tag
+4. The tag push runs `.github/workflows/release.yml`. BigWigsMods/packager builds the zip, creates the GitHub release, and uploads to CurseForge (project ID from `X-Curse-Project-ID` in the TOC, API token from the `CF_API_KEY` repo secret)
+
+`./export.sh ~/Desktop` still builds `DefaultCurrentExpansion.<version>.zip` locally, for testing or a manual upload if the workflow fails.
 
 ## References
 

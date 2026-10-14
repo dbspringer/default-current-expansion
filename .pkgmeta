@@ -15,3 +15,5 @@ ignore:
   - CLAUDE.local.md
   - .pkgmeta
   - docs
+  - .github
+  - export.sh
