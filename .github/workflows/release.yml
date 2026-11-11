@@ -20,7 +20,7 @@ jobs:
       # Pinned to a commit, because this step runs with a token that can write
       # to the repo. Dependabot opens a PR when the packager has a new release.
       # The CurseForge project ID comes from X-Curse-Project-ID in the TOC.
-      - uses: BigWigsMods/packager@e50a250f8705041e40f2fa1ddcb280a686d65aa0 # v2.6.1
+      - uses: BigWigsMods/packager@01e8631a69c69d7654c788d152630d5fed9e3812 # v2.7.0
         env:
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
           # The packager skips an upload when its key is empty, so a secret that
